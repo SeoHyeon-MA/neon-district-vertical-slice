@@ -1,0 +1,69 @@
+# Unreal Engine generated files
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+
+# Build output (keep project icons and packaging blacklist files)
+Build/*
+!Build/*/
+Build/*/**
+!Build/*/PakBlacklist*.txt
+!Build/**/*.ico
+
+# Generated files inside plugins
+Plugins/**/Binaries/
+Plugins/**/Intermediate/
+Plugins/**/DerivedDataCache/
+Plugins/**/Saved/
+
+# Visual Studio
+.vs/
+*.VC.db
+*.VC.opendb
+*.sdf
+*.sln
+*.suo
+*.opensdf
+*.opendb
+*.VC.VC.opendb
+*.csproj
+*.csproj.user
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.user
+*.sln.docstates
+
+# JetBrains Rider
+.idea/
+.idea.*
+*.sln.iml
+
+# Visual Studio Code
+.vscode/
+
+# Xcode
+*.xcworkspace
+*.xcuserdatad
+*.xcuserdata
+*.xcodeproj
+
+# Unreal Engine crash and log files
+crashinfo--*
+*.log
+
+# Automation and local test output
+TestResults/
+AutomationReports/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary and backup files
+*.bak
+*.tmp
+*.temp
+*~
