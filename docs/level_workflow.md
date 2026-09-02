@@ -163,11 +163,12 @@ Phase 3에서 실제 키트로 교체하되, 블록 개수와 위치는 기준�
    Ring 1은 `Merged Mesh`(머티리얼 유지, 드로콜 병합), Ring 2는 `Simplified Mesh` 또는 `Approximated Mesh`.
    빌드 후 `wp.Runtime.HLOD 0/1`로 켜고 끄며 비교하면 그대로 전후 비교 자료가 된다.
 3. **Nanite 판단 (핵심 실험)**
-   동일한 원경을 두 버전으로 만들어 비교한다.
-   - A안: Nanite 활성 원경
-   - B안: 수동 LOD + HISM + Cull Distance
-   `r.Nanite 0/1`과 두 버전의 수치를 함께 제시한다. Masked/Translucent(간판, 철망, 유리)는 Nanite에 불리하므로
-   해당 요소를 분리해 측정한다.
+   동일한 원경을 Nanite 경로와 전통 LOD 경로로 각각 구성해 비교한다.
+   구성 매트릭스, 통제 변수, 기록할 지표, Phase 2 키트 제작에 대한 요구사항은
+   `docs/perf/nanite_experiment.md`에 정의되어 있다.
+
+   주의: `r.Nanite 0`은 자동 생성된 폴백 메시로 그리는 것이지 수동 LOD 경로가 아니다.
+   비교 대상인 B안은 LOD 체인을 직접 만들어 구성해야 한다.
 4. **컬링**
    Cull Distance Volume, 컴포넌트별 Min/Max Draw Distance 설정. HLOD가 대체하는 액터와 컬 거리 설정이
    충돌하지 않도록 정리한다. `r.VisualizeOccludedPrimitives 1`로 오클루전 상태를 확인한다.

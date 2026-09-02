@@ -56,6 +56,7 @@
 |---|---|
 | `_template.md` | 기록 템플릿 |
 | `baseline.md` | 최초 기준선 (원경 스텁 배치 상태) |
+| `nanite_experiment.md` | Nanite vs 전통 LOD 비교 실험 설계 |
 
 ## 5. 자동 측정 실행 방법
 
