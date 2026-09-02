@@ -114,6 +114,18 @@ Neon District
 - [ ] 성능 측정과 최적화 전후 비교
 - [ ] 최종 플레이 테스트 및 폴리싱
 
+## Documentation
+
+작업 규칙과 최적화 기록은 `docs/` 에 정리합니다.
+
+| 문서 | 내용 |
+|---|---|
+| [docs/level_workflow.md](docs/level_workflow.md) | 링 레이어 구조, 폴더 규칙, 맵 제작 및 원경 최적화 워크플로우 |
+| [docs/perf/README.md](docs/perf/README.md) | 성능 측정 프로토콜과 콘솔 명령 |
+| [docs/perf/baseline.md](docs/perf/baseline.md) | 최적화 기준선 측정 기록 |
+
+작업 맵: `Content/NeonDistrict/Maps/Lvl_NeonDistrict`
+
 ## Tools
 
 - Unreal Engine 5.8
