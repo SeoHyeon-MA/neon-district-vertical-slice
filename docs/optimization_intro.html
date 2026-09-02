@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>네온 디스트릭트 원경 최적화</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --ground:#E9EEF2; --sheet:#F8FAFB; --ink:#131E27; --muted:#5B6E7C;
+  --rule:#C2CDD5; --hair:#D8E0E6; --accent:#C22A79; --shadow:0 1px 0 rgba(19,30,39,.04);
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --disp:"IBM Plex Sans Condensed","IBM Plex Sans KR","Malgun Gothic",sans-serif;
+  --body:"IBM Plex Sans KR","IBM Plex Sans Condensed","Malgun Gothic",sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0D141A; --sheet:#151F27; --ink:#DCE6EC; --muted:#8FA3B0;
+    --rule:#2B3A46; --hair:#223038; --accent:#FF63AE; --shadow:0 1px 0 rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0D141A; --sheet:#151F27; --ink:#DCE6EC; --muted:#8FA3B0;
+  --rule:#2B3A46; --hair:#223038; --accent:#FF63AE; --shadow:0 1px 0 rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15.5px;line-height:1.78;-webkit-font-smoothing:antialiased;word-break:keep-all;overflow-wrap:break-word}
+.sheet{max-width:1140px;margin:0 auto;padding:clamp(22px,4vw,52px) clamp(18px,4vw,46px) 110px}
+
+.titleblock{border:1px solid var(--rule);background:var(--sheet);box-shadow:var(--shadow)}
+.tb-head{padding:clamp(22px,3.4vw,38px) clamp(20px,3vw,34px) clamp(18px,2.6vw,26px);border-bottom:1px solid var(--rule)}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);margin:0 0 14px}
+h1{font-family:var(--disp);font-weight:700;font-size:clamp(29px,4.4vw,46px);line-height:1.12;letter-spacing:-.015em;margin:0;text-wrap:balance}
+.tb-head p{margin:16px 0 0;max-width:60ch;color:var(--muted);font-size:15px}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));margin:0}
+.field{padding:13px clamp(20px,3vw,34px) 15px;border-right:1px solid var(--hair)}
+.field:last-child{border-right:0}
+.field dt{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
+.field dd{margin:0;font-family:var(--mono);font-size:13px;font-weight:500}
+
+.sec{display:grid;grid-template-columns:112px minmax(0,1fr);gap:0 34px;padding:clamp(34px,5vw,60px) 0 0;border-top:1px solid var(--hair);margin-top:clamp(34px,5vw,58px)}
+.rail{font-family:var(--mono);font-size:11.5px;letter-spacing:.01em;color:var(--muted);padding-top:9px;line-height:1.55}
+.rail b{display:block;color:var(--accent);font-weight:500;font-size:17px;letter-spacing:.04em;margin-bottom:6px}
+.body>*{max-width:68ch}
+.body>figure,.body>.tablewrap,.body>.checklist,.body>.grid2{max-width:none}
+h2{font-family:var(--disp);font-weight:600;font-size:clamp(21px,2.5vw,28px);line-height:1.25;letter-spacing:-.01em;margin:0 0 18px;text-wrap:balance}
+h3{font-family:var(--disp);font-weight:600;font-size:17.5px;margin:34px 0 10px}
+p{margin:0 0 15px}
+strong{font-weight:600}
+.lead{font-size:16.5px}
+.m{font-family:var(--mono);font-size:.88em;background:var(--sheet);border:1px solid var(--hair);border-radius:3px;padding:1px 5px}
+
+.tablewrap{overflow-x:auto;margin:22px 0 6px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}
+th{font-family:var(--mono);font-weight:500;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);text-align:left;padding:11px 14px 10px;border-bottom:1px solid var(--rule);white-space:nowrap}
+td{padding:12px 14px;border-bottom:1px solid var(--hair);vertical-align:top;line-height:1.62}
+tbody tr:last-child td{border-bottom:0}
+td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.k{font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+caption{caption-side:bottom;text-align:left;font-size:12.5px;color:var(--muted);padding:10px 2px 0;line-height:1.6}
+
+.trap{border-left:3px solid var(--accent);background:var(--sheet);padding:16px 20px 17px;margin:24px 0}
+.trap .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--accent);display:block;margin-bottom:7px}
+.trap p{margin:0;font-size:14.5px}
+.trap p+p{margin-top:10px}
+
+figure{margin:28px 0 8px;color:var(--ink)}
+.figbox{border:1px solid var(--rule);background:var(--sheet);padding:18px 16px 12px;overflow-x:auto}
+.figbox svg{display:block;width:100%;height:auto;min-width:520px}
+figcaption{font-size:12.5px;color:var(--muted);line-height:1.65;padding-top:11px;max-width:70ch}
+.dg-s{fill:none;stroke:currentColor;stroke-width:1.1}
+.dg-t{fill:none;stroke:var(--rule);stroke-width:1}
+.dg-d{fill:none;stroke:var(--rule);stroke-width:1;stroke-dasharray:3 4}
+.dg-a{fill:none;stroke:var(--accent);stroke-width:1.4}
+.dg-f{fill:currentColor;opacity:.12}
+.dg-fa{fill:var(--accent);opacity:.14}
+.dg-mark{fill:currentColor;opacity:.72}
+.figbox text{font-family:var(--mono);fill:currentColor}
+.t-lbl{font-size:11.5px}
+.t-sm{font-size:10.5px;fill:var(--muted)}
+.t-ac{font-size:11.5px;fill:var(--accent)}
+.t-hd{font-size:12.5px;font-weight:500}
+
+.checklist{list-style:none;padding:0;margin:22px 0 0;border-top:1px solid var(--rule)}
+.checklist li{border-bottom:1px solid var(--hair);padding:13px 0 13px 32px;position:relative;font-size:14.5px}
+.checklist li::before{content:"";position:absolute;left:3px;top:20px;width:11px;height:11px;border:1.4px solid var(--rule)}
+.checklist li.done::before{border-color:var(--accent);background:var(--accent)}
+.checklist .who{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.03em;color:var(--muted);margin-top:3px}
+ul.plain{padding-left:19px;margin:0 0 15px}
+ul.plain li{margin-bottom:7px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1px;background:var(--hair);border:1px solid var(--hair);margin:24px 0 6px}
+.grid2>div{background:var(--sheet);padding:16px 18px}
+.grid2 h4{margin:0 0 8px;font-family:var(--mono);font-size:11.5px;letter-spacing:.03em;color:var(--muted);font-weight:500}
+.grid2 p{margin:0;font-size:14px}
+footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--rule);font-family:var(--mono);font-size:11.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px 26px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (max-width:820px){
+  .sec{grid-template-columns:1fr;gap:0}
+  .rail{padding:0 0 14px;display:flex;gap:12px;align-items:baseline}
+  .rail b{margin:0;font-size:14px}
+  .field{border-right:0;border-bottom:1px solid var(--hair)}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+<style>html{color-scheme:light dark}body{margin:0}img{max-width:100%}</style>
+</head>
+<body>
+
+<div class="sheet">
+
+<header class="titleblock">
+  <div class="tb-head">
+    <p class="eyebrow">Vertical Slice · 배경 최적화 셋업 해설</p>
+    <h1>네온 디스트릭트 원경 최적화</h1>
+    <p>언리얼을 처음 켜 본 사람 기준으로, 지금까지 맵에 무엇을 만들었고 그것이 왜 필요한지를 처음부터 설명합니다. 용어를 이미 안다고 가정하지 않습니다.</p>
+  </div>
+  <dl class="fields">
+    <div class="field"><dt>Project</dt><dd>Neon District</dd></div>
+    <div class="field"><dt>Map</dt><dd>Lvl_NeonDistrict</dd></div>
+    <div class="field"><dt>Engine</dt><dd>Unreal Engine 5.8</dd></div>
+    <div class="field"><dt>Play Area</dt><dd>150 m × 150 m</dd></div>
+    <div class="field"><dt>Status</dt><dd>Phase 0 · 측정 전</dd></div>
+  </dl>
+</header>
+
+<section class="sec">
+  <div class="rail"><b>01</b>왜 배경이<br>문제인가</div>
+  <div class="body">
+    <h2>화면 한 장에 쓸 수 있는 시간은 16.6밀리초다</h2>
+    <p class="lead">게임은 1초에 60장의 그림을 새로 그립니다. 그러면 한 장에 허용된 시간은 <strong>1초 ÷ 60 = 약 16.6밀리초</strong>입니다. 이 시간 안에 캐릭터 이동, 총알 판정, 적 AI 판단, 그리고 화면 그리기까지 전부 끝나야 합니다. 넘어가면 프레임이 떨어지고 화면이 끊깁니다. 최적화란 결국 <strong>이 16.6밀리초를 어디에 쓸지 정하는 일</strong>입니다.</p>
+
+    <h3>범인 1 — 물체의 개수</h3>
+    <p>화면에 물체 하나를 그리려면 CPU가 그래픽카드에게 이렇게 말합니다. "이 모양을, 이 재질로, 여기에 그려줘." 이 <strong>부탁 한 번</strong>을 드로우 콜(Draw Call)이라고 합니다.</p>
+    <p>문제는 부탁하는 행위 자체에 비용이 든다는 점입니다. 건물이 500채면 부탁을 500번 넘게 해야 하고, 그래픽카드가 아무리 좋아도 부탁을 만들어내는 CPU가 먼저 지칩니다. 그래서 도시 배경에서는 <strong>폴리곤이 몇 개인지보다 물체가 몇 개인지가 더 중요합니다.</strong></p>
+
+    <h3>범인 2 — 그림자를 만드는 조명</h3>
+    <p>조명이 그림자를 만들려면 엔진은 그 조명의 시점에서 장면을 <strong>한 번 더</strong> 그려봐야 합니다. 무엇이 무엇에 가려지는지 알아야 하니까요. 사이버펑크 씬은 네온 간판이 수백 개인데, 간판마다 조명을 달면 화면을 수백 번 다시 그리는 셈이 됩니다.</p>
+    <p>그래서 이 프로젝트에는 규칙이 하나 있습니다. <strong>원경의 창문 불빛과 네온은 조명이 아니라 "스스로 빛나는 색"으로 칠한다.</strong> 멀리서 보면 똑같아 보이지만 비용은 0에 가깝습니다.</p>
+
+    <h3>그래서 원경은 특별하게 다룬다</h3>
+    <p>플레이어가 실제로 걸어 다닐 수 있는 공간은 150m × 150m 한 구역뿐입니다. 그 바깥의 도시는 <strong>보이기만 하면 되고, 만질 일이 없습니다.</strong> 만질 일이 없다는 건 문을 열 필요도, 벽에 부딪힐 필요도, 안으로 들어갈 필요도 없다는 뜻입니다. 이 사실을 이용해 거리별로 다른 규칙을 적용하는 것이 이 프로젝트의 뼈대입니다.</p>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="rail"><b>02</b>링 구조</div>
+  <div class="body">
+    <h2>거리를 다섯 개의 띠로 잘라 규칙을 다르게 준다</h2>
+    <p>"멀리 있는 건 대충 만든다"는 말은 작업 지침이 되지 못합니다. 얼마나 멀면 대충인지, 대충이 정확히 무엇인지 정해져 있지 않으니까요. 그래서 거리를 다섯 개의 띠(Ring)로 자르고, 띠마다 <strong>무엇을 넣고 무엇을 넣지 않을지</strong>를 미리 못 박았습니다.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 900 336" role="img" aria-label="플레이어로부터의 거리에 따라 다섯 개의 띠로 나뉜 도시 구성. 가까울수록 충돌과 조명이 있고 멀수록 실루엣만 남는다.">
+          <line class="dg-t" x1="40" y1="252" x2="874" y2="252"/>
+          <line class="dg-d" x1="212" y1="58" x2="212" y2="252"/>
+          <line class="dg-d" x1="330" y1="58" x2="330" y2="252"/>
+          <line class="dg-d" x1="530" y1="58" x2="530" y2="252"/>
+          <line class="dg-d" x1="716" y1="58" x2="716" y2="252"/>
+
+          <circle class="dg-a" cx="62" cy="236" r="5"/>
+          <line class="dg-a" x1="62" y1="241" x2="62" y2="252"/>
+          <text class="t-ac" x="62" y="272" text-anchor="middle">PLAYER</text>
+
+          <rect class="dg-s" x="94" y="212" width="30" height="40"/>
+          <rect class="dg-f" x="94" y="212" width="30" height="40"/>
+          <rect class="dg-s" x="132" y="196" width="26" height="56"/>
+          <rect class="dg-f" x="132" y="196" width="26" height="56"/>
+          <rect class="dg-s" x="166" y="220" width="34" height="32"/>
+          <rect class="dg-f" x="166" y="220" width="34" height="32"/>
+
+          <rect class="dg-s" x="226" y="176" width="34" height="76"/>
+          <rect class="dg-s" x="268" y="188" width="30" height="64"/>
+          <rect class="dg-s" x="304" y="170" width="18" height="82"/>
+
+          <rect class="dg-s" x="344" y="150" width="36" height="102"/>
+          <rect class="dg-s" x="388" y="176" width="30" height="76"/>
+          <rect class="dg-s" x="426" y="134" width="40" height="118"/>
+          <rect class="dg-s" x="474" y="164" width="34" height="88"/>
+
+          <rect class="dg-t" x="542" y="112" width="44" height="140"/>
+          <rect class="dg-t" x="596" y="146" width="38" height="106"/>
+          <rect class="dg-t" x="644" y="96" width="50" height="156"/>
+
+          <path class="dg-d" d="M726 168 q40 -22 78 -4 q38 18 62 -6"/>
+          <path class="dg-d" d="M726 206 q46 -18 84 2 q34 16 56 -8"/>
+
+          <text class="t-hd" x="42" y="34">Ring 0</text>
+          <text class="t-sm" x="42" y="50">0 – 150 m · 플레이 구역</text>
+          <text class="t-hd" x="216" y="34">Ring 0.5</text>
+          <text class="t-sm" x="216" y="50">~300 m · 경계 파사드</text>
+          <text class="t-hd" x="334" y="34">Ring 1</text>
+          <text class="t-sm" x="334" y="50">300 m – 1 km · 중경</text>
+          <text class="t-hd" x="534" y="34">Ring 2</text>
+          <text class="t-sm" x="534" y="50">1.5 – 4 km · 스카이라인</text>
+          <text class="t-hd" x="720" y="34">Ring 3</text>
+          <text class="t-sm" x="720" y="50">4 km + · 하늘</text>
+
+          <text class="t-lbl" x="42" y="296">충돌 O · 조명 O</text>
+          <text class="t-lbl" x="216" y="296">겉면만</text>
+          <text class="t-lbl" x="334" y="296">충돌 X · 조명 X</text>
+          <text class="t-lbl" x="534" y="296">실루엣만</text>
+          <text class="t-lbl" x="720" y="296">안개 · 대기</text>
+          <text class="t-sm" x="42" y="318">걸어다닐 수 있음</text>
+          <text class="t-sm" x="216" y="318">들어갈 수 없음</text>
+          <text class="t-sm" x="334" y="318">반복 건물 재사용</text>
+          <text class="t-sm" x="534" y="318">덩어리로 합침</text>
+          <text class="t-sm" x="720" y="318">지오메트리 없음</text>
+        </svg>
+      </div>
+      <figcaption>멀어질수록 오브젝트가 차례로 잃는 것: 먼저 충돌과 내비게이션, 그다음 조명과 재질의 디테일, 마지막에는 개별성 자체(여러 개가 한 덩어리로 합쳐짐). 가로축은 거리 순서이며 축척은 아니다.</figcaption>
+    </figure>
+
+    <div class="tablewrap">
+      <table>
+        <caption>링별 제작 규칙. 새 오브젝트를 배치할 때는 먼저 링을 정하고, 그 링의 규칙을 벗어나면 배치하지 않는다.</caption>
+        <thead><tr><th>Ring</th><th>거리</th><th>충돌</th><th>내비</th><th>텍스처</th><th>조명 액터</th></tr></thead>
+        <tbody>
+          <tr><td class="k">Ring 0</td><td class="n">0–150 m</td><td>있음</td><td>있음</td><td class="n">2K</td><td>있음 (그림자 일부)</td></tr>
+          <tr><td class="k">Ring 0.5</td><td class="n">~300 m</td><td>단순 박스</td><td>없음</td><td class="n">1K</td><td>발광 재질만</td></tr>
+          <tr><td class="k">Ring 1</td><td class="n">300 m–1 km</td><td>없음</td><td>없음</td><td class="n">512</td><td>없음</td></tr>
+          <tr><td class="k">Ring 2</td><td class="n">1.5–4 km</td><td>없음</td><td>없음</td><td class="n">256</td><td>없음</td></tr>
+          <tr><td class="k">Ring 3</td><td class="n">4 km +</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>이 표가 있으면 나중에 "이 건물에 콜리전을 넣어야 하나?" 같은 질문에 매번 고민하지 않아도 됩니다. 링만 확인하면 답이 나옵니다. 규칙을 문서로 고정해 두는 것 자체가 최적화 작업의 절반입니다.</p>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="rail"><b>03</b>언리얼<br>용어</div>
+  <div class="body">
+    <h2>이 문서에 나오는 단어들</h2>
+    <p>언리얼은 같은 개념에 고유한 이름을 붙여 씁니다. 아래만 알면 나머지 설명이 읽힙니다.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>용어</th><th>뜻</th></tr></thead>
+        <tbody>
+          <tr><td class="k">액터 Actor</td><td>레벨에 놓인 모든 것. 건물, 조명, 카메라, 플레이어 시작 지점까지 전부 액터입니다.</td></tr>
+          <tr><td class="k">스태틱 메시</td><td>움직이지 않는 3D 모양 덩어리. 건물, 벽, 상자가 여기 해당합니다.</td></tr>
+          <tr><td class="k">머티리얼</td><td>표면의 재질. 색, 반사, 발광을 정의합니다. 원경의 네온 창문은 여기서 처리합니다.</td></tr>
+          <tr><td class="k">레벨 (맵)</td><td>하나의 공간 파일. 우리 맵은 <span class="m">Lvl_NeonDistrict</span> 입니다.</td></tr>
+          <tr><td class="k">World Partition</td><td>맵을 격자로 잘라 <strong>플레이어 근처만 메모리에 올리는</strong> 자동 스트리밍 시스템.</td></tr>
+          <tr><td class="k">LOD</td><td>Level of Detail. 같은 물체의 <strong>거칠게 만든 버전</strong>을 미리 준비해 두고 멀어지면 바꿔 끼웁니다.</td></tr>
+          <tr><td class="k">HLOD</td><td>Hierarchical LOD. 멀리 있는 <strong>여러 물체를 하나로 합친</strong> 대역 배우. 이 프로젝트의 핵심입니다.</td></tr>
+          <tr><td class="k">컬링 Culling</td><td>화면 밖이거나 너무 멀거나 가려진 것을 <strong>아예 그리지 않고 건너뛰는</strong> 것.</td></tr>
+          <tr><td class="k">인스턴싱 ISM</td><td>똑같은 모양이 여러 개일 때 모양 정보는 한 번만 보내고 위치만 여러 개 보내는 방식.</td></tr>
+          <tr><td class="k">Data Layer</td><td>액터들을 묶어 한꺼번에 켜고 끄는 <strong>스위치</strong>.</td></tr>
+          <tr><td class="k">Nanite</td><td>UE5의 자동 지오메트리 처리 기술. LOD를 손으로 만들지 않아도 알아서 단순화합니다. 만능은 아닙니다.</td></tr>
+          <tr><td class="k">Lumen</td><td>UE5의 실시간 조명·반사 시스템. 젖은 노면 반사가 예쁜 대신 비쌉니다.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="rail"><b>04</b>지금 맵에<br>있는 것</div>
+  <div class="body">
+    <h2>아직 건물은 하나도 없습니다. 대신 기준이 있습니다</h2>
+    <p>현재 맵에 놓인 것은 전부 <strong>회색 상자</strong>입니다. 이 단계를 블록아웃(그레이박스)이라고 부릅니다. 예쁜 건물을 먼저 만들지 않는 이유는 단순합니다. 건물을 다 만든 뒤에 "골목이 너무 좁네" 하고 깨달으면 만든 걸 전부 버려야 하기 때문입니다. <strong>공간과 거리를 먼저 확정하고, 그 위에 아트를 얹습니다.</strong></p>
+
+    <div class="tablewrap">
+      <table>
+        <caption>맵에 배치된 액터 33개. 이름 규칙(BLK_ / REF_ / DIST_ / CAM_)만 봐도 무엇인지 알 수 있게 지었다.</caption>
+        <thead><tr><th>이름</th><th class="n">개수</th><th>정체</th><th>왜 필요한가</th></tr></thead>
+        <tbody>
+          <tr><td class="k">BLK_Ground_PlayArea</td><td class="n">1</td><td>150m × 150m 지면</td><td>플레이어가 서 있을 바닥. 윗면이 높이 0의 기준선입니다.</td></tr>
+          <tr><td class="k">BLK_Boundary_N/S/E/W</td><td class="n">4</td><td>높이 30m 경계벽</td><td>플레이 구역의 끝을 눈으로 보이게 합니다. 나중에 이 자리에 건물 파사드가 들어섭니다.</td></tr>
+          <tr><td class="k">REF_Gauge_*</td><td class="n">3</td><td>100 / 150 / 200cm 기준물</td><td>사람 크기의 자. 아래 설명 참조.</td></tr>
+          <tr><td class="k">DIST_R1_00–11</td><td class="n">12</td><td>Ring 1 스텁 블록</td><td>450–670m 거리의 중경 도시. 지금은 상자, 나중에 건물 키트로 교체.</td></tr>
+          <tr><td class="k">DIST_R2_00–07</td><td class="n">8</td><td>Ring 2 스텁 블록</td><td>1.5–2.6km 거리의 스카이라인. 높이 250–500m.</td></tr>
+          <tr><td class="k">CAM_Perf_01–05</td><td class="n">5</td><td>성능 측정용 고정 카메라</td><td>매번 똑같은 자리에서 측정하기 위한 삼각대.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>스케일 게이지 — 사람 크기의 자</h3>
+    <p>3D 공간에는 원근이 있어서 눈으로는 크기를 못 잡습니다. 그래서 플레이어 시작 지점 옆에 <strong>정확한 치수의 상자 세 개</strong>를 세워 뒀습니다.</p>
+    <ul class="plain">
+      <li><strong>100cm</strong> — 웅크려 숨는 엄폐물의 높이</li>
+      <li><strong>150cm</strong> — 서서 숨는 엄폐물의 높이</li>
+      <li><strong>200cm</strong> — 사람이 지나갈 수 있는 문 폭</li>
+    </ul>
+    <p>골목을 만들 때 이 상자 옆에 대 보면 "좁다/넓다"가 감이 아니라 숫자로 판단됩니다.</p>
+
+    <h3>원경이 진짜 건물이 아니라 상자인 이유</h3>
+    <p>세 가지입니다. 첫째, <strong>실루엣이 도시의 인상을 결정</strong>하기 때문에 실루엣부터 맞춰야 합니다. 둘째, 상자 20개만 있어도 <strong>지금 당장 성능을 측정</strong>할 수 있어서 나중에 비교할 기준값이 생깁니다. 셋째, 상자는 언제든 버릴 수 있습니다.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 620 632" role="img" aria-label="맵 평면도. 중앙의 150미터 플레이 구역을 12개의 링1 블록이 450에서 670미터 거리에, 8개의 링2 블록이 1.5에서 2.6킬로미터 거리에 둘러싸고 있다.">
+          <circle class="dg-d" cx="310" cy="300" r="55.2"/>
+          <circle class="dg-d" cx="310" cy="300" r="100.9"/>
+          <circle class="dg-d" cx="310" cy="300" r="142.6"/>
+          <circle class="dg-d" cx="310" cy="300" r="230"/>
+          <text class="t-sm" x="369" y="297">150 m</text>
+          <text class="t-sm" x="415" y="297">500 m</text>
+          <text class="t-sm" x="457" y="297">1 km</text>
+          <text class="t-sm" x="544" y="297">2.6 km</text>
+
+          <line class="dg-t" x1="44" y1="52" x2="44" y2="86"/>
+          <polygon class="dg-mark" points="44,46 40,58 48,58"/>
+          <text class="t-sm" x="52" y="60">N</text>
+
+          <rect class="dg-fa" x="271" y="261" width="78" height="78"/>
+          <rect class="dg-a" x="271" y="261" width="78" height="78"/>
+
+          <g class="dg-mark">
+            <rect x="326.4" y="202.9" width="7" height="7" rx="1"/>
+            <rect x="384.5" y="209.9" width="7" height="7" rx="1"/>
+            <rect x="403.0" y="265.1" width="7" height="7" rx="1"/>
+            <rect x="419.3" y="320.5" width="7" height="7" rx="1"/>
+            <rect x="385.8" y="367.9" width="7" height="7" rx="1"/>
+            <rect x="341.4" y="403.8" width="7" height="7" rx="1"/>
+            <rect x="283.5" y="404.9" width="7" height="7" rx="1"/>
+            <rect x="233.4" y="377.6" width="7" height="7" rx="1"/>
+            <rect x="198.1" y="331.7" width="7" height="7" rx="1"/>
+            <rect x="204.3" y="274.8" width="7" height="7" rx="1"/>
+            <rect x="220.3" y="218.8" width="7" height="7" rx="1"/>
+            <rect x="275.9" y="202.2" width="7" height="7" rx="1"/>
+          </g>
+          <g class="dg-s">
+            <rect x="390.2" y="80.7" width="12" height="12" rx="1"/>
+            <rect x="479.9" y="219.3" width="12" height="12" rx="1"/>
+            <rect x="510.7" y="377.5" width="12" height="12" rx="1"/>
+            <rect x="388.5" y="493.1" width="12" height="12" rx="1"/>
+            <rect x="228.2" y="481.7" width="12" height="12" rx="1"/>
+            <rect x="93.3" y="383.4" width="12" height="12" rx="1"/>
+            <rect x="138.9" y="227.3" width="12" height="12" rx="1"/>
+            <rect x="215.1" y="84.7" width="12" height="12" rx="1"/>
+          </g>
+          <g class="dg-f">
+            <rect x="390.2" y="80.7" width="12" height="12"/>
+            <rect x="479.9" y="219.3" width="12" height="12"/>
+            <rect x="510.7" y="377.5" width="12" height="12"/>
+            <rect x="388.5" y="493.1" width="12" height="12"/>
+            <rect x="228.2" y="481.7" width="12" height="12"/>
+            <rect x="93.3" y="383.4" width="12" height="12"/>
+            <rect x="138.9" y="227.3" width="12" height="12"/>
+            <rect x="215.1" y="84.7" width="12" height="12"/>
+          </g>
+
+          <line class="dg-t" x1="40" y1="556" x2="580" y2="556"/>
+          <rect class="dg-a" x="42" y="574" width="11" height="11"/>
+          <rect class="dg-fa" x="42" y="574" width="11" height="11"/>
+          <text class="t-lbl" x="62" y="584">플레이 구역 150 × 150 m</text>
+          <text class="t-sm" x="62" y="601">걸어다닐 수 있는 유일한 공간</text>
+          <rect class="dg-mark" x="252" y="576" width="7" height="7"/>
+          <text class="t-lbl" x="268" y="584">Ring 1 · 12개</text>
+          <text class="t-sm" x="268" y="601">450 – 670 m</text>
+          <rect class="dg-s" x="418" y="573" width="12" height="12"/>
+          <text class="t-lbl" x="440" y="584">Ring 2 · 8개</text>
+          <text class="t-sm" x="440" y="601">1.5 – 2.6 km</text>
+        </svg>
+      </div>
+      <figcaption>실제 배치 좌표를 그린 평면도. 안쪽과 바깥쪽을 한 그림에 담기 위해 반지름은 제곱근으로 압축했다(점선 원이 실제 거리 눈금). 블록의 크기는 기호이며 실제 크기가 아니다. 플레이 구역이 얼마나 작은지, 원경이 얼마나 멀리 떨어져 있는지를 보여준다.</figcaption>
+    </figure>
+
+    <h3>태그와 폴더 — 나중을 위한 준비</h3>
+    <p>배치할 때 액터마다 <span class="m">Ring0</span> <span class="m">Distant_Ring1</span> <span class="m">Distant_Ring2</span> <span class="m">PerfCam</span> 같은 <strong>태그</strong>를 붙여 뒀습니다. 태그는 액터에 붙이는 이름표입니다. 이게 있으면 나중에 "Ring 2에 속한 것 전부 골라서 설정 바꿔"가 한 번에 됩니다. 실제로 HLOD 지정도 태그로 8개를 한꺼번에 처리했습니다.</p>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="rail"><b>05</b>HLOD</div>
+  <div class="body">
+    <h2>멀리 있는 여러 개를 하나로 합친다</h2>
+    <p>이 프로젝트에서 가장 중요한 기술입니다. 원리는 <strong>대역 배우</strong>와 같습니다. 멀어서 얼굴이 안 보이는 장면이라면 주연 배우 12명을 부를 필요 없이, 비슷하게 생긴 덩어리 하나로 대신하면 됩니다.</p>
+
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 900 300" role="img" aria-label="HLOD 적용 전에는 원경 건물 12개마다 그리기 요청이 한 번씩 발생해 12회, 적용 후에는 합쳐진 프록시 하나에 대해 1회만 발생한다.">
+          <line class="dg-d" x1="450" y1="20" x2="450" y2="280"/>
+          <text class="t-hd" x="40" y="30">HLOD 없음</text>
+          <text class="t-hd" x="500" y="30">HLOD 적용</text>
+          <text class="t-sm" x="40" y="58">원경 건물 12개 · 각각 따로</text>
+          <text class="t-sm" x="500" y="58">프록시 1개 · 12개를 합침</text>
+
+          <line class="dg-t" x1="36" y1="170" x2="310" y2="170"/>
+          <g class="dg-s">
+            <rect x="40" y="126" width="14" height="44"/>
+            <rect x="62" y="108" width="14" height="62"/>
+            <rect x="84" y="134" width="14" height="36"/>
+            <rect x="106" y="100" width="14" height="70"/>
+            <rect x="128" y="120" width="14" height="50"/>
+            <rect x="150" y="112" width="14" height="58"/>
+            <rect x="172" y="130" width="14" height="40"/>
+            <rect x="194" y="104" width="14" height="66"/>
+            <rect x="216" y="122" width="14" height="48"/>
+            <rect x="238" y="116" width="14" height="54"/>
+            <rect x="260" y="132" width="14" height="38"/>
+            <rect x="282" y="110" width="14" height="60"/>
+          </g>
+          <g class="dg-t">
+            <line x1="47" y1="172" x2="330" y2="230"/>
+            <line x1="69" y1="172" x2="330" y2="230"/>
+            <line x1="91" y1="172" x2="330" y2="230"/>
+            <line x1="113" y1="172" x2="330" y2="230"/>
+            <line x1="135" y1="172" x2="330" y2="230"/>
+            <line x1="157" y1="172" x2="330" y2="230"/>
+            <line x1="179" y1="172" x2="330" y2="230"/>
+            <line x1="201" y1="172" x2="330" y2="230"/>
+            <line x1="223" y1="172" x2="330" y2="230"/>
+            <line x1="245" y1="172" x2="330" y2="230"/>
+            <line x1="267" y1="172" x2="330" y2="230"/>
+            <line x1="289" y1="172" x2="330" y2="230"/>
+          </g>
+          <rect class="dg-s" x="332" y="210" width="86" height="40"/>
+          <text class="t-lbl" x="375" y="235" text-anchor="middle">GPU</text>
+          <text class="t-ac" x="40" y="284">드로우 콜 12회</text>
+
+          <line class="dg-t" x1="496" y1="170" x2="770" y2="170"/>
+          <rect class="dg-fa" x="500" y="104" width="170" height="66"/>
+          <rect class="dg-a" x="500" y="104" width="170" height="66"/>
+          <g class="dg-d">
+            <line x1="528" y1="106" x2="528" y2="168"/>
+            <line x1="556" y1="106" x2="556" y2="168"/>
+            <line x1="584" y1="106" x2="584" y2="168"/>
+            <line x1="612" y1="106" x2="612" y2="168"/>
+            <line x1="640" y1="106" x2="640" y2="168"/>
+          </g>
+          <line class="dg-a" x1="585" y1="172" x2="782" y2="230"/>
+          <rect class="dg-s" x="784" y="210" width="86" height="40"/>
+          <text class="t-lbl" x="827" y="235" text-anchor="middle">GPU</text>
+          <text class="t-ac" x="500" y="284">드로우 콜 1회</text>
+        </svg>
+      </div>
+      <figcaption>바뀌는 것은 선의 개수뿐이다. 화면에 보이는 결과는 거의 같지만, CPU가 그래픽카드에게 부탁하는 횟수가 12분의 1로 줄어든다. 실제 도시 규모에서는 이 비율이 수백 대 1이 된다.</figcaption>
+    </figure>
+
+    <h3>합치는 방법은 두 가지</h3>
+    <div class="grid2">
+      <div>
+        <h4>MeshMerge — Ring 1에 사용</h4>
+        <p>여러 건물을 <strong>한 덩어리로 붙이기만</strong> 합니다. 모양과 재질은 그대로 남아서 꽤 가까이서 봐도 티가 안 납니다. 대신 폴리곤은 줄지 않습니다. 450–670m 거리라 아직 형태가 보이는 Ring 1에 맞습니다.</p>
+      </div>
+      <div>
+        <h4>MeshSimplify — Ring 2에 사용</h4>
+        <p>합치면서 <strong>모양 자체를 뭉갭니다.</strong> 창문 턱이나 난간 같은 디테일이 사라지고 실루엣만 남습니다. 1.5–2.6km 거리에서는 어차피 안 보이므로 손해가 없습니다.</p>
+      </div>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <caption>현재 지정 상태. 액터에 HLOD 레이어를 붙여 두면, 나중에 빌드할 때 엔진이 그 레이어별로 프록시를 만들어 준다.</caption>
+        <thead><tr><th>대상</th><th class="n">개수</th><th>HLOD 레이어</th><th>방식</th></tr></thead>
+        <tbody>
+          <tr><td class="k">Distant_Ring1</td><td class="n">12</td><td class="k">HLOD_Ring1_Merged</td><td>MeshMerge</td></tr>
+          <tr><td class="k">Distant_Ring2</td><td class="n">8</td><td class="k">HLOD_Ring2_Simplified</td><td>MeshSimplify</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="trap">
+      <span class="lbl">함정 — 이름은 맞는데 설정이 다를 수 있다</span>
+      <p><span class="m">HLOD_Ring2_Simplified</span>의 방식이 이름과 달리 기본값인 <strong>Instancing</strong>으로 남아 있었습니다. 그대로 두면 Ring 2가 합쳐지지 않아서, 정작 측정할 때 Ring 1과 Ring 2의 차이가 나오지 않습니다. 에셋을 만들 때 <strong>이름만 바꾸고 안의 설정을 안 바꾸는 것</strong>은 흔한 실수입니다. MeshSimplify로 수정했습니다.</p>
+    </div>
+
+    <p><strong>아직 HLOD를 빌드하지 않았습니다.</strong> 빌드란 엔진이 실제로 합친 덩어리를 계산해 만들어 두는 작업입니다. 이건 의도된 순서입니다. 먼저 <strong>HLOD 없는 상태의 숫자</strong>를 재 두고, 그다음 빌드해서 다시 재야 "얼마나 좋아졌는지"를 말할 수 있기 때문입니다.</p>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="rail"><b>06</b>데이터<br>레이어</div>
+  <div class="body">
+    <h2>액터를 묶어서 한꺼번에 끄고 켜는 스위치</h2>
+    <p>맵의 액터를 그룹으로 묶고, 그룹 전체를 한 번에 켜고 끌 수 있게 하는 기능입니다. 방마다 조명 스위치를 따로 두는 것과 같습니다.</p>
+    <p>이걸 만든 이유는 두 가지입니다. 첫째, <strong>측정할 때 원인을 분리</strong>하기 위해서입니다. 프레임이 떨어질 때 원경 스위치만 꺼 보면 원경 때문인지 아닌지 바로 알 수 있습니다. 둘째, 나중에 아트가 들어오면 <strong>회색 상자 블록아웃을 통째로 끄고</strong> 진짜 건물만 볼 수 있습니다.</p>
+
+    <div class="tablewrap">
+      <table>
+        <caption>현재 4개의 레이어와 소속 액터. Ring 0 아트는 Phase 2에서 채운다.</caption>
+        <thead><tr><th>레이어</th><th class="n">액터</th><th>담는 것</th></tr></thead>
+        <tbody>
+          <tr><td class="k">DL_Blockout</td><td class="n">8</td><td>지면, 경계벽 4개, 스케일 게이지 3개</td></tr>
+          <tr><td class="k">DL_Distant</td><td class="n">20</td><td>Ring 1 · Ring 2 원경 블록 전부</td></tr>
+          <tr><td class="k">DL_Gameplay</td><td class="n">1</td><td>플레이어 시작 지점 (앞으로 NPC, 적, 트리거)</td></tr>
+          <tr><td class="k">DL_Art_Ring0</td><td class="n">0</td><td>아직 비어 있음 — 플레이 구역의 실제 아트</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>측정용 카메라 5개는 <strong>일부러 어느 레이어에도 넣지 않았습니다.</strong> 스위치를 껐다 켜는 실험 도중에 측정 기준점이 사라지면 안 되기 때문입니다.</p>
+
+    <div class="trap">
+      <span class="lbl">함정 1 — Editor 타입에 바닥을 넣으면 안 된다</span>
+      <p>데이터 레이어에는 Editor 타입과 Runtime 타입이 있습니다. <strong>Editor 타입은 에디터에서만 존재하고 실제 게임 빌드에는 포함되지 않습니다.</strong> 처음에 블록아웃 레이어를 Editor로 만들었는데, 그대로 두면 게임을 실행했을 때 바닥이 통째로 사라져 플레이어가 허공으로 떨어집니다. Runtime으로 바꿨습니다.</p>
+      <p>Editor 타입은 주석이나 참조 마커처럼 <strong>플레이어가 절대 만나지 않는 보조 물건</strong>에만 씁니다.</p>
+    </div>
+
+    <div class="trap">
+      <span class="lbl">함정 2 — 기본값이 "꺼짐"이다</span>
+      <p>레이어를 등록하면 <span class="m">Initial Runtime State</span>가 기본적으로 <strong>Unloaded(안 불러옴)</strong>로 설정됩니다. 이 상태로 게임을 실행하면 해당 레이어의 액터가 아예 로드되지 않습니다. 네 레이어 모두 <strong>Activated</strong>로 바꿔야 정상적으로 보입니다. 원경 기여도를 측정할 때만 <span class="m">DL_Distant</span>를 잠시 Unloaded로 되돌립니다.</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="rail"><b>07</b>측정</div>
+  <div class="body">
+    <h2>숫자가 없으면 최적화가 아니라 기분이다</h2>
+    <p>"HLOD를 켜니까 빨라진 것 같다"는 포트폴리오에서 아무 의미가 없습니다. <strong>몇 밀리초에서 몇 밀리초가 됐는지</strong>가 있어야 합니다. 그래서 아트를 만들기 전에 측정 체계부터 세웠습니다.</p>
+
+    <h3>고정 카메라 5개</h3>
+    <p>측정은 매번 <strong>완전히 똑같은 조건</strong>에서 해야 비교가 됩니다. 손으로 카메라를 움직여 재면 각도가 조금만 달라져도 숫자가 흔들립니다. 그래서 다섯 개의 카메라를 심어 두고 항상 그 자리에서만 잽니다.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>카메라</th><th>보는 것</th><th>이 시점을 고른 이유</th></tr></thead>
+        <tbody>
+          <tr><td class="k">01 StreetEntrance</td><td>거리 진입부</td><td>원경이 가장 넓게 열리는 최악의 각도</td></tr>
+          <tr><td class="k">02 AlleyInterior</td><td>골목 내부</td><td>원경이 가려진 상태. 비교용 기준선</td></tr>
+          <tr><td class="k">03 Hideout2FWindow</td><td>적 건물 2층 창</td><td>실내 + 창밖 원경이 동시에 보이는 조합</td></tr>
+          <tr><td class="k">04 CombatZone</td><td>전투 구역 중앙</td><td>AI와 이펙트가 함께 도는 실제 플레이 상황</td></tr>
+          <tr><td class="k">05 SkylineOverlook</td><td>상공 40m</td><td>원경 부하만 순수하게 보는 시점</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>무엇을 적는가</h3>
+    <div class="tablewrap">
+      <table>
+        <caption>게임 실행 중 콘솔(물결표 키)에 명령을 입력하면 화면에 숫자가 표시된다.</caption>
+        <thead><tr><th>명령</th><th>보이는 것</th><th>의미</th></tr></thead>
+        <tbody>
+          <tr><td class="k">stat unit</td><td>Frame / Game / Draw / GPU</td><td>한 장을 그리는 데 걸린 밀리초. Draw가 크면 CPU가, GPU가 크면 그래픽카드가 병목입니다.</td></tr>
+          <tr><td class="k">stat rhi</td><td>DrawPrimitive calls</td><td>앞에서 설명한 "부탁 횟수". HLOD의 효과가 가장 직접적으로 나타나는 숫자입니다.</td></tr>
+          <tr><td class="k">stat scenerendering</td><td>Mesh draw calls</td><td>화면에 실제로 그려진 물체의 수.</td></tr>
+          <tr><td class="k">ProfileGPU</td><td>구간별 비용</td><td>그림자, 조명, 반사 중 무엇이 비싼지 항목별로 보여줍니다.</td></tr>
+          <tr><td class="k">wp.Runtime.HLOD 0 / 1</td><td>HLOD 끄기 / 켜기</td><td>같은 자리에서 껐다 켜며 재면 그대로 전후 비교표가 됩니다.</td></tr>
+          <tr><td class="k">r.Nanite 0 / 1</td><td>Nanite 끄기 / 켜기</td><td>Nanite가 실제로 이득인지 확인합니다. 항상 이득은 아닙니다.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>측정의 유일한 규칙</h3>
+    <p class="lead"><strong>한 번에 하나만 바꾼다.</strong> HLOD를 켜면서 동시에 텍스처 해상도를 낮추면, 좋아진 이유가 둘 중 무엇인지 영영 알 수 없습니다. 하나 바꾸고, 재고, 기록하고, 커밋합니다.</p>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="rail"><b>08</b>진행 상황</div>
+  <div class="body">
+    <h2>지금까지 끝난 것과 다음에 할 것</h2>
+    <ul class="checklist">
+      <li class="done">World Partition 맵 <span class="m">Lvl_NeonDistrict</span> 생성, 템플릿 지오메트리 55개 제거<span class="who">완료</span></li>
+      <li class="done">블록아웃 배치 — 지면, 경계벽 4, 스케일 게이지 3<span class="who">완료</span></li>
+      <li class="done">원경 스텁 20개 배치 (Ring 1 · 12 / Ring 2 · 8)<span class="who">완료</span></li>
+      <li class="done">측정용 고정 카메라 5개 배치<span class="who">완료</span></li>
+      <li class="done">Data Layer 4종 생성 및 액터 29개 할당<span class="who">완료</span></li>
+      <li class="done">HLOD 레이어 2종 생성 및 원경 20개에 지정<span class="who">완료</span></li>
+      <li class="done">작업 규칙과 측정 프로토콜 문서화, GitHub 푸시<span class="who">완료</span></li>
+      <li>네 레이어의 <span class="m">Initial Runtime State</span>를 Activated로 변경<span class="who">다음 — 에디터에서 직접</span></li>
+      <li>Standalone 1920×1080으로 5개 카메라 기준선 측정<span class="who">Phase 0</span></li>
+      <li>HLOD 빌드 후 <span class="m">wp.Runtime.HLOD 0/1</span> 비교 측정<span class="who">Phase 4</span></li>
+      <li>150m × 150m 안의 실제 동선 그레이박스<span class="who">Phase 1</span></li>
+    </ul>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="rail"><b>09</b>순서</div>
+  <div class="body">
+    <h2>왜 이 순서인가</h2>
+    <p>이 프로젝트에서는 <strong>순서 자체가 결과물</strong>입니다. 최적화 과정을 수치로 보여주는 게 목표이므로, 재기 전에 고쳐 버리면 보여줄 것이 없습니다.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Phase</th><th>하는 일</th><th>끝나는 조건</th></tr></thead>
+        <tbody>
+          <tr><td class="k">0 · 기준선</td><td>측정 환경 고정, 5개 카메라 수치 기록</td><td>비교할 숫자가 문서에 남았을 때</td></tr>
+          <tr><td class="k">1 · 그레이박스</td><td>상자만으로 150m 동선 완성, 전투 테스트</td><td>동선을 더 안 고치겠다고 결정했을 때</td></tr>
+          <tr><td class="k">2 · 키트</td><td>건물 모듈 6–8종과 마스터 머티리얼 제작</td><td>같은 조각으로 도시가 만들어질 때</td></tr>
+          <tr><td class="k">3 · 원경</td><td>스텁을 실제 키트로 교체, 안개와 실루엣 조정</td><td>최적화 전 수치를 다시 쟀을 때</td></tr>
+          <tr><td class="k">4 · 최적화</td><td>스트리밍, HLOD, Nanite, 컬링, 라이트 예산</td><td>항목마다 전후 수치가 기록됐을 때</td></tr>
+          <tr><td class="k">5 · 폴리싱</td><td>네온 라이팅, 포스트, 최종 재측정</td><td>최종 비교표가 완성됐을 때</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Phase 4의 항목들은 한 번에 하나씩 적용하고 매번 커밋합니다. 그러면 저장소의 커밋 기록 자체가 <strong>"무엇을 해서 몇 ms를 줄였다"의 연대기</strong>가 됩니다. 그게 이 포트폴리오에서 가장 보여주고 싶은 부분입니다.</p>
+  </div>
+</section>
+
+<footer>
+  <span>Neon District · Vertical Slice</span>
+  <span>Lvl_NeonDistrict · UE 5.8</span>
+  <span>docs/level_workflow.md · docs/perf/</span>
+</footer>
+
+</div>
+</body>
+</html>
