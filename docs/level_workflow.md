@@ -189,11 +189,19 @@ Phase 3에서 실제 키트로 교체하되, 블록 개수와 위치는 기준�
 
 아래 항목은 스크립트로 자동화되지 않으므로 에디터에서 직접 처리한다.
 
-1. **HLODLayer 에셋 생성**
-   Content Browser → `/Game/NeonDistrict/HLOD` → Create Advanced Asset → World Partition → HLOD Layer
-   - `HLOD_Ring1_Merged` : Layer Type = Merged Mesh
-   - `HLOD_Ring2_Simplified` : Layer Type = Simplified Mesh (또는 Approximated Mesh)
-   생성 후 World Settings의 `Default HLOD Layer`와 각 액터의 `HLOD Layer`에 지정한다.
+1. **HLODLayer 에셋** — 생성 및 액터 지정 완료
+   `/Game/NeonDistrict/HLOD`에 두 레이어가 있고, 원경 액터 20개에 지정되어 있다.
+
+   | 에셋 | Layer Type | 대상 |
+   |---|---|---|
+   | `HLOD_Ring1_Merged` | MeshMerge | `Distant_Ring1` 태그 12개 |
+   | `HLOD_Ring2_Simplified` | MeshSimplify | `Distant_Ring2` 태그 8개 |
+
+   `Cell Size 25600` / `Loading Range 76800`은 아직 기본값이다. Phase 4에서 링별 거리에 맞춰 조정하고
+   그 전후를 측정한다. Ring 2는 1.5 ~ 2.6km에 있으므로 Loading Range를 크게 잡아야 한다.
+
+   World Settings의 `Default HLOD Layer`는 None으로 둔다. 지정하면 블록아웃과 플레이 구역 액터까지
+   HLOD 대상이 되므로, 링별로 명시 지정하는 현재 방식이 의도에 맞다.
 
 2. **World Partition Runtime Partition 설정**
    World Settings → World Partition Setup에서 링별 그리드와 Loading Range를 구성한다.
