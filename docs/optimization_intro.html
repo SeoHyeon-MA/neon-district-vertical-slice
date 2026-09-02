@@ -527,7 +527,7 @@ footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--rule);font-fa
         <thead><tr><th>명령</th><th>보이는 것</th><th>의미</th></tr></thead>
         <tbody>
           <tr><td class="k">stat unit</td><td>Frame / Game / Draw / GPU</td><td>한 장을 그리는 데 걸린 밀리초. Draw가 크면 CPU가, GPU가 크면 그래픽카드가 병목입니다.</td></tr>
-          <tr><td class="k">stat rhi</td><td>DrawPrimitive calls</td><td>앞에서 설명한 "부탁 횟수". HLOD의 효과가 가장 직접적으로 나타나는 숫자입니다.</td></tr>
+          <tr><td class="k">stat rhi</td><td>DrawPrimitive calls</td><td>앞에서 설명한 "부탁 횟수". 단, Nanite를 쓰면 이 숫자가 거의 움직이지 않습니다 — 08장 참고.</td></tr>
           <tr><td class="k">stat scenerendering</td><td>Mesh draw calls</td><td>화면에 실제로 그려진 물체의 수.</td></tr>
           <tr><td class="k">ProfileGPU</td><td>구간별 비용</td><td>그림자, 조명, 반사 중 무엇이 비싼지 항목별로 보여줍니다.</td></tr>
           <tr><td class="k">wp.Runtime.HLOD 0 / 1</td><td>HLOD 끄기 / 켜기</td><td>같은 자리에서 껐다 켜며 재면 그대로 전후 비교표가 됩니다.</td></tr>
@@ -542,7 +542,126 @@ footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--rule);font-fa
 </section>
 
 <section class="sec">
-  <div class="rail"><b>08</b>진행 상황</div>
+  <div class="rail"><b>08</b>결과</div>
+  <div class="body">
+    <h2>첫 측정 결과 — 숫자를 읽는 법</h2>
+    <p>2026-09-02에 Phase 0 기준선을 실제로 쟀습니다. 전체 수치는 <span class="m">perf/baseline.md</span>에 있고, 여기서는 <strong>그 숫자가 무슨 뜻인지</strong>를 설명합니다.</p>
+
+    <h3>한 장을 그리는 데 세 명이 동시에 일한다</h3>
+    <p>그림 한 장은 세 단계를 거치는데, 이 셋은 순서대로가 아니라 <strong>동시에</strong> 일합니다. 조립 라인과 같아서 <strong>가장 느린 사람의 속도가 전체 속도</strong>가 됩니다. 이 느린 사람을 병목이라고 부릅니다.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>이름</th><th>하는 일</th><th>비유</th><th>우리 수치</th></tr></thead>
+        <tbody>
+          <tr><td class="k">Game</td><td>게임 로직. AI 판단, 총알 이동, 충돌 검사</td><td>기획자</td><td>2.1 ms</td></tr>
+          <tr><td class="k">Render</td><td>"이걸 이렇게 그려라"라고 GPU에 지시서를 씀</td><td>작업 지시자</td><td>12.4 ms</td></tr>
+          <tr><td class="k">GPU</td><td>실제로 픽셀을 칠함</td><td>공장</td><td>11.4 ms</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Render가 12.4ms인 것은 지시자가 바빠서가 아니라 <strong>공장이 밀려서 기다리고 있기 때문</strong>입니다. 주문을 넣었는데 공장이 안 받아주니 서서 대기하는 상태입니다.</p>
+    <p class="lead">즉 이 프로젝트는 <strong>GPU 바운드</strong>입니다. 기획자(Game)는 2.1ms만 쓰고 놀고 있습니다. 지금 AI 코드를 아무리 잘 짜도 프레임은 1도 빨라지지 않습니다. 손댈 곳은 조명, 그림자, 화면에 보이는 물체 — 그리는 쪽입니다.</p>
+
+    <h3>측정 결과</h3>
+    <div class="tablewrap">
+      <table>
+        <caption>RTX 3060 Ti / Ryzen 5 5600X, Standalone 1920×1080. 카메라당 5000프레임 중 로딩을 제외한 마지막 2500프레임 평균.</caption>
+        <thead><tr><th>카메라</th><th>Frame</th><th>Game</th><th>Render</th><th>GPU</th><th>FPS</th><th>Draw Calls</th></tr></thead>
+        <tbody>
+          <tr><td class="k">01 StreetEntrance</td><td>12.42 ms</td><td>2.13</td><td>12.40</td><td>11.43</td><td>80.5</td><td>23</td></tr>
+          <tr><td class="k">02 AlleyInterior</td><td>12.40 ms</td><td>2.09</td><td>12.39</td><td>11.42</td><td>80.6</td><td>23</td></tr>
+          <tr><td class="k">03 Hideout2FWindow</td><td>12.84 ms</td><td>2.12</td><td>12.82</td><td>11.84</td><td>77.9</td><td>23</td></tr>
+          <tr><td class="k">04 CombatZone</td><td>12.68 ms</td><td>2.10</td><td>12.66</td><td>11.68</td><td>78.9</td><td>23</td></tr>
+          <tr><td class="k">05 SkylineOverlook</td><td>13.42 ms</td><td>2.11</td><td>13.41</td><td>12.39</td><td>74.5</td><td>23</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>이 표가 말하는 세 가지</h3>
+    <p><strong>첫째, 카메라를 바꿔도 1ms밖에 차이나지 않습니다.</strong> 원경이 전혀 안 보이는 골목(12.40ms)과 도시 전체가 보이는 상공(13.42ms)의 차이가 1.02ms입니다. 지금 원경 스텁 20개가 만드는 부하는 프레임의 8%도 안 됩니다.</p>
+    <p><strong>둘째, 나머지 11.4ms는 화면에 뭐가 있든 나가는 고정비입니다.</strong> 가게로 치면 손님이 0명이어도 나가는 월세입니다. 켜져 있는 기능들이 물체 단위가 아니라 <strong>화면 전체</strong>에 대해 계산하기 때문입니다.</p>
+    <ul>
+      <li><strong>Lumen</strong>(실시간 간접광) — 빛이 벽에 튕기는 걸 매 프레임 계산합니다. 물체가 없어도 하늘빛이 바닥에 반사되는 계산은 돕니다.</li>
+      <li><strong>Virtual Shadow Maps</strong>(고품질 그림자) — 드로우 콜 23장 중 13.6장을 그림자가 씁니다. 가장 큰 몫입니다.</li>
+      <li><strong>SkyAtmosphere와 볼류메트릭 안개</strong> — 화면 전체 픽셀에 걸립니다.</li>
+    </ul>
+    <p class="lead">이 고정비를 알아둔 것이 기준선의 진짜 값어치입니다. 나중에 GPU가 25ms로 나오면 "25ms구나"가 아니라 <strong>"콘텐츠가 13.6ms를 먹고 있구나"</strong>라고 읽을 수 있습니다. 뺄 기준이 없으면 이 분해가 불가능합니다.</p>
+    <p><strong>셋째, 드로우 콜은 이 구성에서 지표가 되지 못합니다.</strong> 어느 카메라에서든 23으로 똑같고, 그중 실제 물체를 그리는 몫(BasePass)은 1.9장뿐입니다. 템플릿의 <span class="m">SM_Cube</span>가 <strong>Nanite</strong> 메시이기 때문입니다.</p>
+    <p>Nanite는 물체를 하나씩 주문받는 대신 화면 전체를 한 번에 훑어서 지금 보이는 픽셀에 필요한 만큼만 알아서 그립니다. 공장이 주문서를 안 받고 자동으로 처리하는 신형 라인이 깔린 셈입니다. 그래서 건물이 20채든 2000채든 주문서 수가 늘지 않습니다.</p>
+
+    <h3>그래서 정해야 할 것</h3>
+    <p>05장에서 설명한 HLOD, 인스턴싱, 컬링은 전부 <strong>주문서 수를 줄이는</strong> 기법입니다. Nanite를 쓰는 한 그 숫자가 애초에 안 움직이므로 "Draw Calls 500 → 50" 같은 표는 만들 수 없습니다. 두 갈래 중 하나를 골라야 합니다.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th></th><th>A안 — Nanite 유지</th><th>B안 — Nanite 끈 버전도 함께 제작</th></tr></thead>
+        <tbody>
+          <tr><td class="k">비교 지표</td><td>GPU 시간만</td><td>GPU 시간 + 드로우 콜</td></tr>
+          <tr><td class="k">작업량</td><td>기본</td><td>원경을 두 벌 만들어야 함</td></tr>
+          <tr><td class="k">보여지는 것</td><td>현대적 워크플로우</td><td>두 방식의 차이를 수치로 아는 사람</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>TA 직군 포트폴리오라면 B안이 훨씬 강합니다. "왜 이 방식을 골랐는가"에 근거를 댈 수 있기 때문입니다. 다만 Phase 3에서 진짜 도시를 만든 뒤에 결정해도 늦지 않습니다.</p>
+
+    <h3>앞으로 어떤 그림이 나와야 성공인가</h3>
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 900 250" role="img" aria-label="GPU 시간 예산 막대 그래프. 지금은 고정비 11.4밀리초에 콘텐츠 1밀리초. 실제 도시를 배치하면 26밀리초로 늘고, 최적화 후 15밀리초로 줄이는 것이 목표다.">
+          <rect class="dg-s" x="200" y="24" width="13" height="10"/>
+          <rect class="dg-f" x="200" y="24" width="13" height="10"/>
+          <text class="t-sm" x="220" y="33">고정비 11.4ms · Lumen · 그림자 · 안개</text>
+          <rect class="dg-a" x="500" y="24" width="13" height="10"/>
+          <rect class="dg-fa" x="500" y="24" width="13" height="10"/>
+          <text class="t-sm" x="520" y="33">콘텐츠 · 원경과 플레이 구역</text>
+
+          <text class="t-hd" x="40" y="76">지금 · 스텁 20개</text>
+          <text class="t-sm" x="40" y="90">실측값</text>
+          <rect class="dg-s" x="200" y="62" width="228" height="28"/>
+          <rect class="dg-f" x="200" y="62" width="228" height="28"/>
+          <rect class="dg-a" x="428" y="62" width="20" height="28"/>
+          <rect class="dg-fa" x="428" y="62" width="20" height="28"/>
+          <text class="t-lbl" x="458" y="81">12.4 ms</text>
+
+          <text class="t-hd" x="40" y="128">Phase 3 후 · 실제 도시</text>
+          <text class="t-sm" x="40" y="142">예시 · 최적화 전</text>
+          <rect class="dg-s" x="200" y="114" width="228" height="28"/>
+          <rect class="dg-f" x="200" y="114" width="228" height="28"/>
+          <rect class="dg-a" x="428" y="114" width="292" height="28"/>
+          <rect class="dg-fa" x="428" y="114" width="292" height="28"/>
+          <text class="t-ac" x="730" y="133">26 ms · 프레임 붕괴</text>
+
+          <text class="t-hd" x="40" y="180">Phase 4 후 · 최적화</text>
+          <text class="t-sm" x="40" y="194">예시 · 목표</text>
+          <rect class="dg-s" x="200" y="166" width="228" height="28"/>
+          <rect class="dg-f" x="200" y="166" width="228" height="28"/>
+          <rect class="dg-a" x="428" y="166" width="72" height="28"/>
+          <rect class="dg-fa" x="428" y="166" width="72" height="28"/>
+          <text class="t-lbl" x="510" y="185">15 ms · 11ms 절약</text>
+
+          <line class="dg-t" x1="200" y1="212" x2="820" y2="212"/>
+          <line class="dg-t" x1="200" y1="212" x2="200" y2="218"/>
+          <line class="dg-t" x1="400" y1="212" x2="400" y2="218"/>
+          <line class="dg-t" x1="600" y1="212" x2="600" y2="218"/>
+          <line class="dg-t" x1="800" y1="212" x2="800" y2="218"/>
+          <text class="t-sm" x="200" y="232" text-anchor="middle">0</text>
+          <text class="t-sm" x="400" y="232" text-anchor="middle">10</text>
+          <text class="t-sm" x="600" y="232" text-anchor="middle">20</text>
+          <text class="t-sm" x="800" y="232" text-anchor="middle">30 ms</text>
+
+          <line class="dg-d" x1="428" y1="46" x2="428" y2="212"/>
+          <text class="t-sm" x="836" y="216">GPU 시간</text>
+        </svg>
+      </div>
+    </figure>
+    <p>숫자는 예시입니다. 이 표가 나오면 "동일 카메라·동일 설정에서 GPU 시간을 26ms에서 15ms로 42% 줄였고, 그중 HLOD가 7ms, 컬링이 2ms, 라이트 예산이 2ms를 기여했다"고 말할 수 있습니다. <strong>기법별 기여도를 쪼갤 수 있다는 것</strong>이 핵심이고, 그래서 최적화를 몰아서 하지 않고 하나씩 적용하며 매번 재는 것입니다.</p>
+
+    <h3>지금 수치의 한계</h3>
+    <p>스텁은 머티리얼 한 장짜리 단순 상자입니다. 실제 키트로 바꾸면 GPU 시간이 크게 오릅니다. 따라서 <strong>최적화 효과를 증명하는 실질적 기준선은 Phase 3 직후에 다시 잡아야 합니다.</strong> 지금 이 표의 역할은 두 가지입니다 — 측정 파이프라인이 재현 가능하게 돈다는 확인, 그리고 빈 상태의 고정비를 알아두는 것.</p>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="rail"><b>09</b>진행 상황</div>
   <div class="body">
     <h2>지금까지 끝난 것과 다음에 할 것</h2>
     <ul class="checklist">
@@ -553,8 +672,9 @@ footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--rule);font-fa
       <li class="done">Data Layer 4종 생성 및 액터 29개 할당<span class="who">완료</span></li>
       <li class="done">HLOD 레이어 2종 생성 및 원경 20개에 지정<span class="who">완료</span></li>
       <li class="done">작업 규칙과 측정 프로토콜 문서화, GitHub 푸시<span class="who">완료</span></li>
-      <li>네 레이어의 <span class="m">Initial Runtime State</span>를 Activated로 변경<span class="who">다음 — 에디터에서 직접</span></li>
-      <li>Standalone 1920×1080으로 5개 카메라 기준선 측정<span class="who">Phase 0</span></li>
+      <li class="done">Data Layer 네 종의 <span class="m">Initial Runtime State</span>를 Activated로 변경<span class="who">완료</span></li>
+      <li class="done">Standalone 1920×1080으로 5개 카메라 기준선 측정<span class="who">Phase 0 완료</span></li>
+      <li>Nanite 유지(A안) vs Nanite 끈 버전 병행(B안) 결정<span class="who">Phase 3 이후</span></li>
       <li>HLOD 빌드 후 <span class="m">wp.Runtime.HLOD 0/1</span> 비교 측정<span class="who">Phase 4</span></li>
       <li>150m × 150m 안의 실제 동선 그레이박스<span class="who">Phase 1</span></li>
     </ul>
@@ -562,7 +682,7 @@ footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--rule);font-fa
 </section>
 
 <section class="sec">
-  <div class="rail"><b>09</b>순서</div>
+  <div class="rail"><b>10</b>순서</div>
   <div class="body">
     <h2>왜 이 순서인가</h2>
     <p>이 프로젝트에서는 <strong>순서 자체가 결과물</strong>입니다. 최적화 과정을 수치로 보여주는 게 목표이므로, 재기 전에 고쳐 버리면 보여줄 것이 없습니다.</p>
