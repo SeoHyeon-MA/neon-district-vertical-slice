@@ -56,3 +56,45 @@
 |---|---|
 | `_template.md` | 기록 템플릿 |
 | `baseline.md` | 최초 기준선 (원경 스텁 배치 상태) |
+
+## 5. 자동 측정 실행 방법
+
+에디터 UI를 거치지 않고 커맨드라인으로 Standalone을 띄워 고정 시점의 수치를 잡는다.
+카메라마다 한 번씩 실행한다.
+
+```
+"C:\Program Files\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe" ^
+  "C:\Projects\CyberPunkProject\CyberPunkProject.uproject" ^
+  /Game/NeonDistrict/Maps/Lvl_NeonDistrict ^
+  -game -windowed -resx=1920 -resy=1080 ^
+  -ExecCmds="r.VSync 0,t.MaxFPS 0,r.ScreenPercentage 100,ghost,BugItGo -6800 0 180 -3 0 0,stat unit" ^
+  -abslog="<로그 경로>"
+```
+
+- `-ExecCmds`의 값 전체를 **큰따옴표로 감싸야 한다.** 감싸지 않으면 공백에서 잘려
+  `r.VSync`만 인식되고 나머지 명령이 전부 무시된다.
+- `ghost`를 먼저 실행해 콜리전을 끈다. 이걸 빼면 공중 시점(`CAM_Perf_05`)에서 플레이어가 낙하해
+  측정 위치가 유지되지 않는다.
+- `BugItGo X Y Z Pitch Yaw Roll`로 이동한다. 로그에 `LogCheatManager: BugItGo to: ...`가 찍히면 성공이다.
+- `stat unit`은 UE 5.8에서 `Draws`와 `Prims`까지 함께 표시하므로 드로우 콜 확인에 `stat rhi`를 따로 켤 필요가 없다.
+- Data Layer의 `Initial Runtime State`를 바꿨다면 **레벨을 저장한 뒤** 실행한다.
+  Standalone은 디스크의 상태를 읽으므로, 저장하지 않으면 레이어가 Unloaded인 채로 실행되어
+  지면이 사라지고 플레이어가 낙하한다.
+
+### 카메라별 BugItGo 인자
+
+| 카메라 | 인자 |
+|---|---|
+| `CAM_Perf_01_StreetEntrance` | `BugItGo -6800 0 180 -3 0 0` |
+| `CAM_Perf_02_AlleyInterior` | `BugItGo -2000 -3000 180 0 90 0` |
+| `CAM_Perf_03_Hideout2FWindow` | `BugItGo 4500 0 700 -5 180 0` |
+| `CAM_Perf_04_CombatZone` | `BugItGo 2000 0 180 0 -135 0` |
+| `CAM_Perf_05_SkylineOverlook` | `BugItGo 0 0 4000 -8 45 0` |
+
+### 측정 환경에 대한 경고
+
+이 방식으로 얻은 수치는 **측정하는 동안 PC에서 다른 작업이 돌지 않을 때만** 유효하다.
+언리얼 에디터를 켜둔 채로 측정하면 에디터가 GPU와 CPU를 함께 점유해 프레임 타임이
+몇 배로 부풀려진다. 실제로 에디터를 켜둔 상태에서 잰 첫 시도는 거의 빈 블록아웃 씬에서
+Frame 66ms(15 FPS)가 나왔다. 측정 전에 에디터와 브라우저, 메신저를 모두 종료하고,
+측정 중에는 창을 전환하거나 마우스를 움직이지 않는다.
