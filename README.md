@@ -122,6 +122,8 @@ Neon District
 |---|---|
 | [docs/optimization_intro.md](docs/optimization_intro.md) | 원경 최적화 입문 — 드로우 콜, 링 구조, HLOD를 처음부터 설명하는 해설서 |
 | [docs/level_workflow.md](docs/level_workflow.md) | 링 레이어 구조, 폴더 규칙, 맵 제작 및 원경 최적화 워크플로우 |
+| [docs/level_flow.md](docs/level_flow.md) | 플레이 동선 설계, 구역 좌표, 시야 설계 |
+| [docs/level_blockout_shots.md](docs/level_blockout_shots.md) | 블록아웃 구역별 스크린샷과 검토 기록 |
 | [docs/perf/README.md](docs/perf/README.md) | 성능 측정 프로토콜과 콘솔 명령 |
 | [docs/perf/baseline.md](docs/perf/baseline.md) | 최적화 기준선 측정 기록 |
 | [docs/perf/nanite_experiment.md](docs/perf/nanite_experiment.md) | Nanite vs 전통 LOD 비교 실험 설계 |
