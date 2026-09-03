@@ -29,6 +29,7 @@ Data Layer는 4종 모두 Activated 상태다.
 | OS | Windows 11 (25H2) |
 | ScreenPercentage / VSync / MaxFPS | 100 / 0 / 0 |
 | 렌더링 | Lumen, Virtual Shadow Maps, Substrate, Ray Tracing 활성 |
+| **Nanite** | **활성.** 원경 스텁과 블록아웃에 쓰인 `SM_Cube`가 Nanite 메시다 |
 
 ## 측정 방법
 
