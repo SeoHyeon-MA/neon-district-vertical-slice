@@ -246,13 +246,21 @@ UE5 First Person 템플릿에 딸려 온 호러 변형 샘플로, 이 기획에�
 제거 대상: `Source/CyberPunkProject/Variant_Horror/`, `Content/Variant_Horror/`,
 `Content/__ExternalActors__/Variant_Horror/`, `Content/__ExternalObjects__/Variant_Horror/`
 
-- [ ] 레퍼런스 뷰어로 `Variant_Horror` 에셋을 참조하는 다른 에셋이 없는지 확인
-- [ ] `Content/Variant_Horror/` 에디터에서 삭제
-- [ ] `Source/CyberPunkProject/Variant_Horror/` 삭제 후 프로젝트 리빌드
-- [ ] `Config/`에 남은 Horror 관련 참조 정리
-- [ ] 빌드 및 PIE 정상 동작 확인
+- [x] `Variant_Horror` 에셋을 참조하는 다른 에셋이 없는지 확인 — 외부 참조 0건
+- [x] `Content/Variant_Horror/`, `__ExternalActors__`, `__ExternalObjects__` 삭제 (100개 에셋)
+- [x] `Source/CyberPunkProject/Variant_Horror/` 삭제 (8개 파일)
+- [x] `CyberPunkProject.Build.cs`의 `Variant_Horror` 인클루드 경로 2개 제거
+- [x] `Config/`에 남은 Horror 관련 참조 정리 — 원래 없었음
+- [ ] 빌드 및 PIE 정상 동작 확인 — **보류**, 아래 참고
 
 **완료 기준** — Variant_Horror 관련 코드와 에셋이 모두 제거된 상태에서 프로젝트가 정상 빌드되고 `Lvl_NeonDistrict`가 실행된다.
+
+> **빌드 검증 보류 사유** — 삭제와 무관한 엔진 측 문제로 리빌드가 실패한다.
+> 엔진의 룰 어셈블리 캐시 `UE_5.8/Engine/Intermediate/Build/BuildRules/UE5Rules.dll`은 8/31에 생성됐는데,
+> Rider가 9/4에 `RiderLink` 플러그인을 엔진에 설치하면서 그 안의 `RD` 모듈이 캐시에 없는 상태가 됐다.
+> UBT가 `Expecting to find a type ... named 'RD'` (RulesError)로 중단한다.
+> 해당 캐시(`UE5Rules.dll`, `UE5RulesManifest.json`)를 지우고 다시 빌드하면 재생성된다.
+> 코드 측 안전성은 참조 스캔으로 확인했다 — 삭제된 Horror 클래스를 참조하는 코드는 `Build.cs` 인클루드 경로 외에 없었다.
 
 ---
 
@@ -265,10 +273,10 @@ UE5 First Person 템플릿에 딸려 온 호러 변형 샘플로, 이 기획에�
 README의 Disclaimer가 밝힌 대로 이 프로젝트의 리소스는 직접 제작하거나 사용 권한이 있는 자료로 구성하며,
 학습용 임포트 자산이 배포물에 섞이면 안 된다.
 
-- [ ] `Project Settings > Packaging`의 `Directories to never cook`에 `/Game/CP77_Study` 추가
-- [ ] 슬라이스 레벨이 CP77_Study 에셋을 참조하지 않는지 레퍼런스 확인
-- [ ] `Content/NewCubeLevel.umap` (임시 테스트 맵) 유지·삭제 결정
-- [ ] `Content/Developers/` 쿠킹 제외 확인
+- [x] `Config/DefaultGame.ini`에 `DirectoriesToNeverCook` 항목으로 `/Game/CP77_Study` 추가
+- [x] 슬라이스 레벨이 CP77_Study 에셋을 참조하지 않는지 레퍼런스 확인 — 참조 0건
+- [x] `Content/Developers/`도 같은 방식으로 쿠킹 제외
+- [ ] `Content/NewCubeLevel.umap` (임시 테스트 맵) 유지·삭제 결정 — git 미추적이라 삭제 시 복구 불가, 판단 필요
 - [ ] `SourceArt/`, `Tools/` 저장소 포함 여부와 `.gitignore` 방침 결정
 - [ ] 학습 자료임을 `docs/CP77_Study/README_KO.md`에 명시
 

@@ -25,8 +25,6 @@ public class CyberPunkProject : ModuleRules
 
 		PublicIncludePaths.AddRange(new string[] {
 			"CyberPunkProject",
-			"CyberPunkProject/Variant_Horror",
-			"CyberPunkProject/Variant_Horror/UI",
 			"CyberPunkProject/Variant_Shooter",
 			"CyberPunkProject/Variant_Shooter/AI",
 			"CyberPunkProject/Variant_Shooter/UI",
