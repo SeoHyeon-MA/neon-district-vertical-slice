@@ -251,16 +251,23 @@ UE5 First Person 템플릿에 딸려 온 호러 변형 샘플로, 이 기획에�
 - [x] `Source/CyberPunkProject/Variant_Horror/` 삭제 (8개 파일)
 - [x] `CyberPunkProject.Build.cs`의 `Variant_Horror` 인클루드 경로 2개 제거
 - [x] `Config/`에 남은 Horror 관련 참조 정리 — 원래 없었음
-- [ ] 빌드 및 PIE 정상 동작 확인 — **보류**, 아래 참고
+- [x] 빌드 확인 — `Result: Succeeded` (2026-09-07)
+- [ ] 에디터에서 PIE 정상 동작 확인
 
 **완료 기준** — Variant_Horror 관련 코드와 에셋이 모두 제거된 상태에서 프로젝트가 정상 빌드되고 `Lvl_NeonDistrict`가 실행된다.
 
-> **빌드 검증 보류 사유** — 삭제와 무관한 엔진 측 문제로 리빌드가 실패한다.
-> 엔진의 룰 어셈블리 캐시 `UE_5.8/Engine/Intermediate/Build/BuildRules/UE5Rules.dll`은 8/31에 생성됐는데,
-> Rider가 9/4에 `RiderLink` 플러그인을 엔진에 설치하면서 그 안의 `RD` 모듈이 캐시에 없는 상태가 됐다.
-> UBT가 `Expecting to find a type ... named 'RD'` (RulesError)로 중단한다.
-> 해당 캐시(`UE5Rules.dll`, `UE5RulesManifest.json`)를 지우고 다시 빌드하면 재생성된다.
-> 코드 측 안전성은 참조 스캔으로 확인했다 — 삭제된 Horror 클래스를 참조하는 코드는 `Build.cs` 인클루드 경로 외에 없었다.
+> **빌드가 한 번 막혔던 기록** — 이 삭제와 무관한 엔진 측 문제였다.
+> 엔진 룰 어셈블리 캐시 `UE_5.8/Engine/Intermediate/Build/BuildRules/UE5Rules.dll`은 8/31 생성인데,
+> Rider가 9/4에 `RiderLink` 플러그인을 엔진에 설치하면서 그 안의 `RD` 모듈이 캐시에 없는 상태가 됐고,
+> UBT가 `Expecting to find a type ... named 'RD'` (RulesError)로 중단했다.
+>
+> **주의 — 이 캐시는 그냥 지우면 안 된다.** 이 엔진은 설치형(binary) 빌드라
+> (`Engine/Build/InstalledBuild.txt` 존재) UBT가 룰 어셈블리를 읽기 전용으로 취급해 자동 재생성하지 않는다.
+> 지우면 `Precompiled rules assembly ... does not exist`로 바뀌며, `-ForceRulesCompile`로도 풀리지 않는다.
+>
+> 재생성 방법: `InstalledBuild.txt`를 잠시 옮겨 설치형 판정을 끈 상태에서
+> `UnrealBuildTool.dll -Mode=QueryTargets -Project=<uproject>`를 실행하면 C++ 컴파일 없이 캐시만 다시 만들어진다.
+> 실행 직후 표식 파일을 반드시 원위치시킨다. 확실한 대안은 Epic Games Launcher의 UE 5.8 파일 검증이다.
 
 ---
 
