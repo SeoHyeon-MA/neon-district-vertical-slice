@@ -67,3 +67,8 @@ Desktop.ini
 *.tmp
 *.temp
 *~
+
+# Large third-party sample content kept locally only.
+# ParagonTwinblast is 2.4 GB of Epic sample assets; committing it would
+# bloat the repository far past what GitHub is meant to carry.
+Content/ParagonTwinblast/
