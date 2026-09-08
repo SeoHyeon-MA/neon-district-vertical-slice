@@ -24,11 +24,16 @@ public class CyberPunkProject : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[] { });
 
 		PublicIncludePaths.AddRange(new string[] {
-			"CyberPunkProject",
-			"CyberPunkProject/Variant_Shooter",
-			"CyberPunkProject/Variant_Shooter/AI",
-			"CyberPunkProject/Variant_Shooter/UI",
-			"CyberPunkProject/Variant_Shooter/Weapons"
+			"CyberPunkProject/Public",
+			"CyberPunkProject/Public/NeonDistrict",
+			"CyberPunkProject/Public/Variant_Shooter",
+			"CyberPunkProject/Public/Variant_Shooter/AI",
+			"CyberPunkProject/Public/Variant_Shooter/UI",
+			"CyberPunkProject/Public/Variant_Shooter/Weapons"
+		});
+
+		PrivateIncludePaths.AddRange(new string[] {
+			"CyberPunkProject/Private"
 		});
 
 		// Uncomment if you are using Slate UI
