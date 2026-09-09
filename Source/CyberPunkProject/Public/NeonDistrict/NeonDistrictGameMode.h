@@ -15,7 +15,7 @@ protected:
 	
 	//플레이어가 게임 시작 시 지급받는 무기
 	UPROPERTY(EditDefaultsOnly, Category="Neon District")
-	TSubclassOf<AShooterWeapon> StartingWeaponClass;
+	TArray<TSubclassOf<AShooterWeapon>> StartingWeapons;
 	
 public:
 	

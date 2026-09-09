@@ -1,6 +1,7 @@
 ﻿#include "NeonDistrict/NeonDistrictGameMode.h"
 
 #include "NeonDistrictPistol.h"
+#include "NeonDistrictRifle.h"
 #include "NeonDistrict/NeonDistrictWeapon.h"
 #include "UObject/ConstructorHelpers.h"                    // ← ConstructorHelpers::FClassFinder
 #include "Variant_Shooter/Weapons/ShooterWeaponHolder.h"   // ← IShooterWeaponHolder
@@ -13,7 +14,8 @@
 ANeonDistrictGameMode::ANeonDistrictGameMode()
 {
 	//시작 무기를 만든 총으로
-	StartingWeaponClass = ANeonDistrictPistol::StaticClass();
+	StartingWeapons.Add(ANeonDistrictPistol::StaticClass());
+	StartingWeapons.Add(ANeonDistrictRifle::StaticClass());
 }
 
 void ANeonDistrictGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -47,7 +49,7 @@ void ANeonDistrictGameMode::HandleStartingNewPlayer_Implementation(APlayerContro
 	//부모가 먼저 폰을 스폰하고 빙의시킨다.
 	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
 	
-	if (!NewPlayer || !StartingWeaponClass)
+	if (StartingWeapons.IsEmpty())
 	{
 		return;
 	}
@@ -61,7 +63,13 @@ void ANeonDistrictGameMode::HandleStartingNewPlayer_Implementation(APlayerContro
 			return;
 		if (IShooterWeaponHolder* WeaponHolder = Cast<IShooterWeaponHolder>(WeakPC->GetPawn()))
 		{
-			WeaponHolder->AddWeaponClass(StartingWeaponClass);
+			for (const TSubclassOf<AShooterWeapon>&WeaponClass : StartingWeapons)
+			{
+				if (WeaponClass)
+				{
+					WeaponHolder->AddWeaponClass(WeaponClass);
+				}
+			}
 		}
 	});
 }

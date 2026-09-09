@@ -35,7 +35,7 @@ void ANeonDistrictWeapon::BeginPlay()
 		// 총 크기 조절
 		GunMesh->SetRelativeScale3D(FVector(0.3f));
 		// 총 위치 조절
-		GunMesh->SetRelativeLocation(FVector(0.f, 0.f, 0.f));
+		GunMesh->SetRelativeLocation(FVector(0.f, 0.f, 5.f));
 		// 총 방향 조절
 		GunMesh->SetRelativeRotation(FRotator(0.f, 0.f, 0.f));
 	}
