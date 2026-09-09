@@ -9,4 +9,10 @@ ANeonDistrictPistol::ANeonDistrictPistol()
 	FirstPersonAnimAsset = TSoftClassPtr<UAnimInstance>(FSoftObjectPath(TEXT("/Game/Variant_Shooter/Anims/ABP_FP_Pistol.ABP_FP_Pistol_C")));
 
 	ThirdPersonAnimAsset = TSoftClassPtr<UAnimInstance>(FSoftObjectPath(TEXT("/Game/Variant_Shooter/Anims/ABP_TP_Pistol.ABP_TP_Pistol_C")));
+
+	GunMeshAsset = TSoftObjectPtr<UStaticMesh>(FSoftObjectPath(TEXT("/Game/Weapons/Pistol/Meshes/SM_Pistol.SM_Pistol")));
+	
+	GunMeshScale = 1.f;
+	GunMeshLocation = FVector::ZeroVector;
+	GunMeshRotation = FRotator::ZeroRotator;
 }

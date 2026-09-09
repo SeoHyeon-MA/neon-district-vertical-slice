@@ -27,18 +27,18 @@ ANeonDistrictWeapon::ANeonDistrictWeapon()
 void ANeonDistrictWeapon::BeginPlay()
 {
 	// 총 모델
-	if (UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr,
-		TEXT("/Game/Fab/Sci-fi_Gun_Venra-46_/sci_fi_gunvenra_46/StaticMeshes/sci_fi_gunvenra_46.sci_fi_gunvenra_46")))
+	if (UStaticMesh* Mesh = GunMeshAsset.LoadSynchronous())
 	{
 		GunMesh->SetStaticMesh(Mesh);
 		
-		// 총 크기 조절
-		GunMesh->SetRelativeScale3D(FVector(0.3f));
-		// 총 위치 조절
-		GunMesh->SetRelativeLocation(FVector(0.f, 0.f, 5.f));
-		// 총 방향 조절
-		GunMesh->SetRelativeRotation(FRotator(0.f, 0.f, 0.f));
 	}
+	
+	// 총 크기 조절
+	GunMesh->SetRelativeScale3D(FVector(GunMeshScale));
+	// 총 위치 조절
+	GunMesh->SetRelativeLocation(GunMeshLocation);
+	// 총 방향 조절
+	GunMesh->SetRelativeRotation(GunMeshRotation);
 
 	// 발사할 투사체
 	if (UClass* Projectile = LoadClass<AShooterProjectile>(nullptr,

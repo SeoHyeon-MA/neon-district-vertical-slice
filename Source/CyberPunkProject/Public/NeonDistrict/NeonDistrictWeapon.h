@@ -34,4 +34,21 @@ protected:
 	//3인칭 몸이 쓸 애니메이션
 	UPROPERTY(EditDefaultsOnly, Category = "NeonDistict")
 	TSoftClassPtr<UAnimInstance> ThirdPersonAnimAsset;
+	
+	//총 모델
+	UPROPERTY(EditDefaultsOnly, Category="NeonDistict|Mesh")
+	TSoftObjectPtr<UStaticMesh> GunMeshAsset;
+	
+	//손 소켓 기준
+	//위치
+	UPROPERTY(EditDefaultsOnly, Category="NeonDistict|Mesh")
+	FVector GunMeshLocation = FVector::ZeroVector;
+	
+	//회전
+	UPROPERTY(EditDefaultsOnly, Category = "NeonDistict|Mesh")
+	FRotator GunMeshRotation = FRotator::ZeroRotator;
+	
+	//균일 배율
+	UPROPERTY(EditDefaultsOnly, Category = "NeonDistict|Mesh")
+	float GunMeshScale = 1.f;
 };

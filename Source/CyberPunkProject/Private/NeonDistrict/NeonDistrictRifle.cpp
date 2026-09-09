@@ -14,4 +14,11 @@ ANeonDistrictRifle::ANeonDistrictRifle()
 	bFullAuto = true;
 	RefireRate = 0.12f;
 	MagazineSize = 30;
+	
+	//스태틱 메쉬 설정
+	GunMeshAsset = TSoftObjectPtr<UStaticMesh>(FSoftObjectPath(TEXT("/Game/Fab/Sci-fi_Gun_Venra-46_/sci_fi_gunvenra_46/StaticMeshes/sci_fi_gunvenra_46.sci_fi_gunvenra_46")));
+	
+	GunMeshScale = 0.3f;
+	GunMeshLocation = FVector(0.f, 0.f, 5.f);
+	GunMeshRotation = FRotator::ZeroRotator;
 }
