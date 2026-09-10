@@ -5,6 +5,7 @@
 #include "NeonDistrictPistol.h"
 #include "NeonDistrictRifle.h"
 #include "NeonDistrict/NeonDistrictWeapon.h"
+#include "NeonDistrict/NeonDistrictMission.h"
 #include "UObject/ConstructorHelpers.h"                    // ← ConstructorHelpers::FClassFinder
 #include "Variant_Shooter/Weapons/ShooterWeaponHolder.h"   // ← IShooterWeaponHolder
 #include "GameFramework/PlayerController.h"                // ← WeakPC->GetPawn()
@@ -26,9 +27,20 @@ void ANeonDistrictGameMode::SetCheckpoint(const FTransform& NewCheckpoint)
 	bHasCheckpoint = true;
 }
 
+void ANeonDistrictGameMode::SetActiveMission(ANeonDistrictMission* Mission)
+{
+	ActiveMission = Mission;
+}
+
 
 void ANeonDistrictGameMode::RestartPlayer(AController* NewPlayer)
 {
+	// 진행 중인 미션이 있으면 실패를 알린다
+	if (ActiveMission.IsValid())
+	{
+		ActiveMission->OnPlayerDied();
+	}
+	
 	if (bHasCheckpoint && NewPlayer)
 	{
 		RestartPlayerAtTransform(NewPlayer, Checkpoint);

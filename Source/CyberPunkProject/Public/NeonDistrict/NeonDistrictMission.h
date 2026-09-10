@@ -7,6 +7,7 @@
 #include "NeonDistrictMission.generated.h"
 
 class UBoxComponent;
+class UArrowComponent;
 
 UCLASS()
 class CYBERPUNKPROJECT_API ANeonDistrictMission : public AActor
@@ -16,6 +17,10 @@ class CYBERPUNKPROJECT_API ANeonDistrictMission : public AActor
 	/* 미션이 시작되는 구역 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	UBoxComponent* EntryTrigger;
+	
+	/* 리스폰 위치. (트리거 바깥) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UArrowComponent* RestartPoint;
 	
 protected:
 	/* NPC에게 미션을 받았는지 (false일 경우 구역에 들어와도 아무일도 일어나지 않음) */
@@ -36,7 +41,8 @@ public:
 
 	// NPC 대화가 끝나면 호출
 	void AcceptMission();
-
+	// 플레이어가 죽었을 때 게임모드가 알려준다
+	void OnPlayerDied();
 
 protected:
 	/* 구역 진입 감지 */

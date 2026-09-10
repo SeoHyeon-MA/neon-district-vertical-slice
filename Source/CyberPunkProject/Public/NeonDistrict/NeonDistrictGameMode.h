@@ -5,6 +5,7 @@
 #include "NeonDistrictGameMode.generated.h"
 
 class AShooterWeapon;
+class ANeonDistrictMission;
 
 UCLASS()
 class CYBERPUNKPROJECT_API ANeonDistrictGameMode : public AShooterGameMode
@@ -21,6 +22,8 @@ protected:
 	FTransform Checkpoint;
 	bool bHasCheckpoint = false;
 	
+	//지금 진행 중인 미션
+	TWeakObjectPtr<ANeonDistrictMission> ActiveMission;
 	
 public:
 	
@@ -28,6 +31,8 @@ public:
 
 	// 미션 진행에 따라 재시작 지점을 옮긴다.
 	void SetCheckpoint(const FTransform& NewCheckpoint);
+	// 미션이 시작될 때 자기를 등록한다
+	void SetActiveMission(ANeonDistrictMission* Mission);
 
 	
 protected:
@@ -40,4 +45,5 @@ protected:
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 	/* 폰이 필요할 때마다 호출. 체크포인트가 있으면 그쪽으로 보낸다 */
 	virtual void RestartPlayer(AController* NewPlayer) override;
+	
 };
