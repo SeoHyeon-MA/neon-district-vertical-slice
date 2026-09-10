@@ -18,13 +18,31 @@ ANeonDistrictGameMode::ANeonDistrictGameMode()
 	StartingWeapons.Add(ANeonDistrictRifle::StaticClass());
 }
 
+void ANeonDistrictGameMode::SetCheckpoint(const FTransform& NewCheckpoint)
+{
+	Checkpoint = NewCheckpoint;
+	bHasCheckpoint = true;
+}
+
+void ANeonDistrictGameMode::RestartPlayer(AController* NewPlayer)
+{
+	if (bHasCheckpoint && NewPlayer)
+	{
+		RestartPlayerAtTransform(NewPlayer, Checkpoint);
+		return;
+	}
+	
+	// 체크포인트가 없으면 원래대로 PlayerStart 사용
+	Super::RestartPlayer(NewPlayer);
+}
+
 void ANeonDistrictGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	// 템플릿 셔터 캐릭터 (메시와 애니메이션이 들어 있다)
 	if (UClass* PawnClass = LoadClass<APawn>(nullptr,
-		TEXT("/Game/Variant_Shooter/Blueprints/BP_ShooterCharacter.BP_ShooterCharacter_C")))
+		TEXT("/Game/NeonDistrict/Blueprints/BP_NeonDistrictCharacter.BP_NeonDistrictCharacter_C")))
 	{
 		DefaultPawnClass = PawnClass;
 	}
@@ -44,26 +62,25 @@ void ANeonDistrictGameMode::InitGame(const FString& MapName, const FString& Opti
 	}
 }
 
-void ANeonDistrictGameMode::HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer)
+void ANeonDistrictGameMode::SetPlayerDefaults(APawn* PlayerPawn)
 {
-	//부모가 먼저 폰을 스폰하고 빙의시킨다.
-	Super::HandleStartingNewPlayer_Implementation(NewPlayer);
+	Super::SetPlayerDefaults(PlayerPawn);
 	
 	if (StartingWeapons.IsEmpty())
 	{
 		return;
 	}
 	
-	//폰과 애니메이션 초기화가 끝난 다음 프레임에 지급한다
-	TWeakObjectPtr<APlayerController> WeakPC(NewPlayer);
+	// 폰과 애니메이션 초기화가 끝난 다음 프레임에 지급한다.
+	TWeakObjectPtr<APawn> WeakPawn(PlayerPawn);
 	
-	GetWorldTimerManager().SetTimerForNextTick([this, WeakPC]()
+	GetWorldTimerManager().SetTimerForNextTick([this,WeakPawn]()
 	{
-		if (!WeakPC.IsValid())
-			return;
-		if (IShooterWeaponHolder* WeaponHolder = Cast<IShooterWeaponHolder>(WeakPC->GetPawn()))
+		if (!WeakPawn.IsValid()) return;
+		
+		if (IShooterWeaponHolder* WeaponHolder = Cast<IShooterWeaponHolder>(WeakPawn.Get()))
 		{
-			for (const TSubclassOf<AShooterWeapon>&WeaponClass : StartingWeapons)
+			for (const TSubclassOf<AShooterWeapon>& WeaponClass : StartingWeapons)
 			{
 				if (WeaponClass)
 				{
@@ -73,3 +90,5 @@ void ANeonDistrictGameMode::HandleStartingNewPlayer_Implementation(APlayerContro
 		}
 	});
 }
+
+
