@@ -20,8 +20,11 @@ ANeonDistrictMission::ANeonDistrictMission()
 	
 	EntryTrigger->SetBoxExtent(FVector(200.f, 200.f, 200.f));
 	
-	// Trigger는 언리얼이 트리거 볼륨용으로 미리 만들어둔 프리셋
-	EntryTrigger->SetCollisionProfileName(TEXT("Trigger"));
+	// 플레이어인지 확인 후 겹침 확인
+	EntryTrigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	EntryTrigger->SetCollisionObjectType(ECC_WorldDynamic); 
+	EntryTrigger->SetCollisionResponseToAllChannels(ECR_Ignore);
+	EntryTrigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	
 	EntryTrigger->OnComponentBeginOverlap.AddDynamic(this, &ANeonDistrictMission::OnEntryOverlap);
 }
