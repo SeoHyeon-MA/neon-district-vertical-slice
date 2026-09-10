@@ -175,14 +175,14 @@ protected:
 	AShooterWeapon* FindWeaponOfType(TSubclassOf<AShooterWeapon> WeaponClass) const;
 
 	/** Called when this character's HP is depleted */
-	void Die();
+	virtual void Die();
 
 	/** Called to allow Blueprint code to react to this character's death */
 	UFUNCTION(BlueprintImplementableEvent, Category="Shooter", meta = (DisplayName = "On Death"))
 	void BP_OnDeath();
 
 	/** Called from the respawn timer to destroy this character and force the PC to respawn */
-	void OnRespawn();
+	virtual void OnRespawn();
 
 public:
 
