@@ -1,5 +1,7 @@
 ﻿#include "NeonDistrict/NeonDistrictGameMode.h"
 
+#include "EngineUtils.h"
+#include "NeonDistrictMission.h"
 #include "NeonDistrictPistol.h"
 #include "NeonDistrictRifle.h"
 #include "NeonDistrict/NeonDistrictWeapon.h"
@@ -23,6 +25,7 @@ void ANeonDistrictGameMode::SetCheckpoint(const FTransform& NewCheckpoint)
 	Checkpoint = NewCheckpoint;
 	bHasCheckpoint = true;
 }
+
 
 void ANeonDistrictGameMode::RestartPlayer(AController* NewPlayer)
 {

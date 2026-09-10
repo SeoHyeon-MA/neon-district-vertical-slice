@@ -28,6 +28,7 @@ public:
 
 	// 미션 진행에 따라 재시작 지점을 옮긴다.
 	void SetCheckpoint(const FTransform& NewCheckpoint);
+
 	
 protected:
 	
