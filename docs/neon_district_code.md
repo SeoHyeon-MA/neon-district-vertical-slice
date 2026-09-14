@@ -3,7 +3,8 @@
 이 프로젝트 고유의 게임플레이 C++ 코드(`Source/CyberPunkProject/*/NeonDistrict/`)가
 무엇을 하고, 왜 그렇게 짰는지 정리한 문서다.
 
-기준 시점: 작업 트리(커밋 전) 상태. 비교 대상 커밋은 `4556b5b feat: add a C++ weapon class carrying a static mesh gun`.
+기준 시점: `ece1d88 refactor: let the mission own its retry loop through delegates` (2026-09-14).
+4절은 초기 작성 당시(2026-09-08)의 변경 기록이라 그대로 두었다. 최신 흐름은 7절을 본다.
 
 ---
 
@@ -16,19 +17,33 @@ NeonDistrict 코드는 그 템플릿을 **상속으로 덮어쓰는 층**이다.
 ```text
 AGameModeBase
  └─ AShooterGameMode        (템플릿, UCLASS(abstract) — 직접 쓸 수 없다)
-     └─ ANeonDistrictGameMode   ← 프로젝트 전용 게임모드
+     └─ ANeonDistrictGameMode   ← 폰·컨트롤러·UI 지정, 시작 무기, 체크포인트 재시작
+
+ACharacter
+ └─ ACyberPunkProjectCharacter (템플릿 — 1인칭 카메라, 이동)
+     └─ AShooterCharacter       (템플릿 — 사격, 체력, 사망)
+         └─ ANeonDistrictCharacter  ← 리스폰 대신 재시작 요청, OnDied 방송
+             └─ BP_NeonDistrictCharacter (BP_ShooterCharacter 복제 후 부모 변경 — 메시·애님·입력)
 
 AActor
- └─ AShooterWeapon          (템플릿 — 발사/재장전/탄약 로직 전부 보유)
-     └─ ANeonDistrictWeapon     ← 프로젝트 전용 무기(외형 + 에셋 바인딩만 담당)
+ └─ AShooterWeapon          (템플릿, UCLASS(abstract) — 발사/재장전/탄약 로직)
+     └─ ANeonDistrictWeapon     (abstract — 스태틱 메시 총 + 소프트 참조 + BeginPlay 로드)
+         ├─ ANeonDistrictPistol     ← 한 손 애님, 단발
+         └─ ANeonDistrictRifle      ← 두 손 애님, 연사 30발
+
+AActor
+ └─ ANeonDistrictMission    ← 진입 트리거, 상태 머신, 사망 카운트, 재시도 루프
 ```
 
 | 파일 | 역할 |
 |---|---|
-| `Public/NeonDistrict/NeonDistrictGameMode.h` | 게임모드 선언. 시작 무기 클래스 프로퍼티 + 오버라이드 2개 |
-| `Private/NeonDistrict/NeonDistrictGameMode.cpp` | 폰·컨트롤러·UI 클래스 지정, 스폰 직후 시작 무기 지급 |
-| `Public/NeonDistrict/NeonDistrictWeapon.h` | 무기 선언. 스태틱 메시 총 컴포넌트 |
-| `Private/NeonDistrict/NeonDistrictWeapon.cpp` | 총 메시·투사체·애님 BP 에셋 바인딩 |
+| `NeonDistrictGameMode.h/.cpp` | 폰·컨트롤러·UI 클래스 지정(`InitGame`), 스폰마다 무기 지급(`SetPlayerDefaults`), 체크포인트 재시작(`RestartPlayer`), `OnPlayerPawnReady` 방송 |
+| `NeonDistrictCharacter.h/.cpp` | `Die()` 오버라이드 — 템플릿 리스폰 취소, 지연 후 재시작 요청, `OnDied` 방송. 콘솔용 `NDKill` |
+| `NeonDistrictWeapon.h/.cpp` | 스태틱 메시 총 컴포넌트, 에셋 소프트 참조, `BeginPlay`에서 로드·오프셋 적용 |
+| `NeonDistrictPistol.h/.cpp`, `NeonDistrictRifle.h/.cpp` | 생성자에서 경로·오프셋·탄창·연사만 채움 |
+| `NeonDistrictMission.h/.cpp` | 진입 트리거, `EMissionState`, `DeathCount`, 델리게이트 구독, `SetupSegment` 루프. 콘솔용 `ND.AcceptMission` |
+
+헤더는 `Public/NeonDistrict/`, 구현은 `Private/NeonDistrict/`에 있다.
 
 ---
 
@@ -38,19 +53,22 @@ AActor
 
 `AShooterGameMode`는 `UCLASS(abstract)`라 레벨에 직접 지정할 수 없다.
 그래서 **구체 클래스가 하나 필요했고**, 동시에 로드맵 1번의 "시작 무기 지급"을 여기에 붙였다.
-지금 이 클래스가 하는 일은 두 가지다.
+지금 이 클래스가 하는 일은 세 가지다.
 
 1. 어떤 폰·컨트롤러·UI를 쓸지 정한다 (`InitGame`)
-2. 플레이어가 스폰되면 총을 쥐어준다 (`HandleStartingNewPlayer_Implementation`)
+2. 폰이 스폰될 때마다 총을 쥐어주고, 끝나면 `OnPlayerPawnReady`를 방송한다 (`SetPlayerDefaults`)
+3. 체크포인트가 있으면 거기서 재시작시킨다 (`RestartPlayer`, `SetCheckpoint`)
+
+미션에 대해서는 **아무것도 모른다.** 사실을 방송할 뿐 판단하지 않는다 (7절).
 
 ### 멤버
 
 ```cpp
 UPROPERTY(EditDefaultsOnly, Category="Neon District")
-TSubclassOf<AShooterWeapon> StartingWeaponClass;
+TArray<TSubclassOf<AShooterWeapon>> StartingWeapons;
 ```
 
-- 생성자에서 `ANeonDistrictWeapon::StaticClass()`로 기본값을 넣는다.
+- 생성자에서 `ANeonDistrictPistol`, `ANeonDistrictRifle`을 순서대로 넣는다. 나중에 넣은 것을 들고 시작한다.
 - `TSubclassOf<>`라서 나중에 다른 무기로 바꿀 때 코드를 고칠 필요가 없다.
 - `EditDefaultsOnly`이므로 인스턴스가 아니라 클래스 기본값(BP 파생 시)에서만 바꾼다.
 - 전방 선언 `class AShooterWeapon;`만 두고 헤더에서 `ShooterWeapon.h`를 include 하지 않았다 — 헤더 의존을 줄이는 정석 패턴.
@@ -76,29 +94,35 @@ BP를 잡는 방법은 두 가지인데 여기서는 뒤쪽을 골랐다.
 `InitGame`은 게임모드 초기화 중 **폰이 스폰되기 전에** 불리므로,
 여기서 `DefaultPawnClass`를 바꿔도 늦지 않는다. 그래서 안전한 런타임 로드를 쓸 수 있었다.
 
-### `HandleStartingNewPlayer_Implementation()` — 왜 다음 틱인가
+### `SetPlayerDefaults()` — 왜 다음 틱인가
+
+처음에는 `HandleStartingNewPlayer_Implementation`에 있었다. 그 함수는 **첫 접속에만** 불려서
+부활한 플레이어가 맨손이 되는 문제가 있었고, 스폰마다 불리는 `SetPlayerDefaults`로 옮겼다.
 
 ```cpp
-Super::HandleStartingNewPlayer_Implementation(NewPlayer);   // 부모가 폰 스폰 + 빙의
+Super::SetPlayerDefaults(PlayerPawn);
 
-TWeakObjectPtr<APlayerController> WeakPC(NewPlayer);
-GetWorldTimerManager().SetTimerForNextTick([this, WeakPC]()
+TWeakObjectPtr<APawn> WeakPawn(PlayerPawn);
+GetWorldTimerManager().SetTimerForNextTick([this, WeakPawn]()
 {
-    if (!WeakPC.IsValid()) return;
-    if (IShooterWeaponHolder* Holder = Cast<IShooterWeaponHolder>(WeakPC->GetPawn()))
+    if (!WeakPawn.IsValid()) return;
+    if (IShooterWeaponHolder* Holder = Cast<IShooterWeaponHolder>(WeakPawn.Get()))
     {
-        Holder->AddWeaponClass(StartingWeaponClass);
+        for (const TSubclassOf<AShooterWeapon>& WeaponClass : StartingWeapons)
+        {
+            if (WeaponClass) Holder->AddWeaponClass(WeaponClass);
+        }
+        OnPlayerPawnReady.Broadcast(WeakPawn.Get());   // 미션이 이걸 듣고 새 폰에 재구독한다
     }
 });
 ```
 
 핵심 세 가지.
 
-- **`Super`가 먼저** — 부모가 폰을 스폰하고 빙의시키기 전에는 `GetPawn()`이 null이다.
 - **다음 틱으로 미룸** — 빙의 직후 프레임에는 폰의 메시/애님 초기화가 아직 진행 중이다.
   그 시점에 무기를 붙이면 `AttachWeaponMeshes`가 소켓을 못 찾거나 애님 인스턴스 교체가 씹힐 수 있다.
   한 틱 뒤로 미뤄 초기화가 끝난 상태를 보장한다.
-- **`TWeakObjectPtr`** — 람다가 다음 틱에 실행되는 사이에 컨트롤러가 파괴될 수 있다.
+- **`TWeakObjectPtr`** — 람다가 다음 틱에 실행되는 사이에 폰이 파괴될 수 있다.
   raw 포인터를 캡처하면 댕글링이 되므로 약참조로 잡고 `IsValid()`로 확인한다.
 
 지급 경로는 **`IShooterWeaponHolder` 인터페이스**를 통한다.
@@ -236,10 +260,10 @@ GlobalDefaultGameMode=/Game/FirstPerson/Blueprints/BP_FirstPersonGameMode.BP_Fir
 |---|---|
 | `Source/CyberPunkProject/NeonDistrict/` 폴더 신설 | 완료 (Public/Private 분리) |
 | `ANeonDistrictGameMode` 생성 | 완료 |
-| `ANeonDistrictCharacter` 생성 | **미착수** — 지금은 템플릿 `BP_ShooterCharacter`를 그대로 쓴다 |
-| 리스폰 비활성화 / 체크포인트 재시작 | **미착수** — `ShooterCharacter`의 `RespawnTime = 5.0f`가 그대로 살아 있다 |
+| `ANeonDistrictCharacter` 생성 | 완료 — `BP_NeonDistrictCharacter`가 이 클래스를 부모로 쓴다 |
+| 리스폰 비활성화 / 체크포인트 재시작 | 완료 — 템플릿 타이머 취소 후 `RestartPlayer`가 체크포인트로 보낸다 (7절) |
 | 시작 무기 지급 (`AddWeaponClass`) | 완료 |
-| `Lvl_NeonDistrict`에 GameMode Override | 완료 (커밋 전) |
+| `Lvl_NeonDistrict`에 GameMode Override | 완료 |
 | `PlayerStart` (-6600, 0, 120) 확인 | 미확인 |
 
 ---
@@ -253,3 +277,156 @@ GlobalDefaultGameMode=/Game/FirstPerson/Blueprints/BP_FirstPersonGameMode.BP_Fir
 - `NeonDistrictGameMode.h`에서 `InitGame` 위에 `HandleStartingNewPlayer`용 주석("플레이어가 스폰되어 폰에 빙의한 직후 호출된다")이 중복으로 붙어 있다.
 - `NeonDistrictWeapon.cpp`의 `#include "Components/SkeletalMeshComponent.h"` — 직접 쓰는 곳이 없다(`GetFirstPersonMesh()`의 반환 타입 때문인데 헤더 체인으로 이미 들어온다).
 - `GunMesh`의 `SetRelativeLocation(0)` / `SetRelativeRotation(0)`은 기본값과 같아 실질적인 동작이 없다. 총구 정렬을 잡을 때 쓸 자리 표시로 남겨둔 것이라면 그대로 두어도 된다.
+
+---
+
+## 7. 사망 → 미션 재시도 — 델리게이트로 잇기
+
+로드맵 1번의 리스폰 항목과 기획서의 "죽으면 미션 재시도, 사망 횟수로 랭크"를 구현한 부분이다.
+관련 커밋: `b2a77e4`, `bb1e60f`, `d302fec`, `eea6986`, `ece1d88`.
+
+### 7-1. 왜 델리게이트인가
+
+처음에는 게임모드가 미션 포인터(`ActiveMission`)를 들고, 죽을 때마다 직접 물어봤다.
+
+```cpp
+// 이전 — 게임모드가 미션 사정을 알아야 했다
+if (ActiveMission.IsValid()) { ActiveMission->OnPlayerDied(); }
+```
+
+게임모드는 규칙을 담당하는 클래스인데 미션 내부까지 알아야 했고, 미션은 누가 불러주기만 기다렸다.
+지금은 **방송과 구독**으로 뒤집었다. 방송하는 쪽은 누가 듣는지 모르고, 미션이 시작할 때 스스로 구독한다.
+게임모드는 미션이 존재하는지조차 모른다.
+
+| 역할 | 하는 일 | 상대를 아는가 |
+|---|---|---|
+| 방송 | 일이 생기면 `Broadcast()` | 모름 |
+| 구독 | 미리 `AddUObject()`로 등록 | 방송자를 알고 등록 |
+
+템플릿도 같은 방식을 쓴다 — `AShooterNPC::OnPawnDeath`를 스포너와 AI 컨트롤러가 각자 구독한다.
+
+### 7-2. 세 파일의 역할
+
+**캐릭터** — 죽음을 방송한다.
+
+```cpp
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnNeonCharacterDied, ANeonDistrictCharacter*);
+FOnNeonCharacterDied OnDied;
+// Die() 안, Super::Die() 직후
+OnDied.Broadcast(this);
+```
+
+**게임모드** — 새 폰이 무기까지 받은 뒤 방송한다.
+
+```cpp
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnPlayerPawnReady, APawn*);
+FOnPlayerPawnReady OnPlayerPawnReady;
+// SetPlayerDefaults 람다 끝
+OnPlayerPawnReady.Broadcast(WeakPawn.Get());
+```
+
+**미션** — 둘 다 구독하고 자기 루프를 돈다.
+
+```cpp
+GameMode->OnPlayerPawnReady.AddUObject(this, &ANeonDistrictMission::BindToPlayer);
+Character->OnDied.AddUObject(this, &ANeonDistrictMission::HandlePlayerDied);
+```
+
+### 7-3. 흐름
+
+```text
+ND.AcceptMission                    State: NotAccepted → Accepted
+    │
+트리거 진입 → StartMission()        State: → InProgress, DeathCount = 0
+    ├ SetCheckpoint(RestartPoint)
+    ├ OnPlayerPawnReady 구독         ← 앞으로 새 폰마다 BindToPlayer
+    ├ BindToPlayer(현재 폰)          ← OnDied 구독
+    └ SetupSegment()
+    │
+사망 → ANeonDistrictCharacter::Die()
+    ├ Super::Die()                   무기 끄기, 이동 정지, 입력 차단
+    ├ OnDied.Broadcast
+    │    └ HandlePlayerDied()        DeathCount = 1
+    │         └ SetupSegment()       ← "처음부터 다시"
+    ├ 템플릿 RespawnTimer 취소
+    └ RestartDelay 뒤 RequestRestart()
+         컨트롤러 확보 → Destroy() → GameMode->RestartPlayer(컨트롤러)
+    │
+RestartPlayer → 체크포인트에서 스폰
+    └ SetPlayerDefaults → 무기 지급
+         └ OnPlayerPawnReady.Broadcast
+              └ BindToPlayer(새 폰)   ← OnDied 재구독
+    │
+사망 → ... DeathCount = 2
+```
+
+### 7-4. 재구독이 필요한 이유
+
+죽으면 폰이 파괴되고, 그 폰의 `OnDied`에 걸어둔 구독도 함께 사라진다.
+새 폰은 아무도 구독하지 않은 델리게이트를 갖고 태어나므로,
+게임모드의 `OnPlayerPawnReady`를 받아 **새 폰에 다시 구독**해야 한다.
+이게 없으면 첫 죽음만 세고 두 번째부터는 조용해진다. 검증 기준은 `사망 2회`가 찍히는지다.
+
+### 7-5. 폰을 파괴해도 엔진은 부활시키지 않는다
+
+엔진이 `RestartPlayer`를 자동으로 부르는 경로는 `APlayerController::StartFire`(`PlayerController.cpp:3262`) 하나뿐이고,
+이건 옛 입력 시스템 경로라 Enhanced Input에서는 도달하지 않는다.
+템플릿 주석의 *"destroy the character to force the PC to respawn"* 은 이 프로젝트에서 성립하지 않는다.
+그래서 `RequestRestart()`가 컨트롤러를 미리 잡아두고 `Destroy()` 뒤 직접 `RestartPlayer`를 부른다.
+
+### 7-6. 미션 상태 — 열거형
+
+```cpp
+enum class EMissionState : uint8
+{
+    NotAccepted,   // NPC에게 아직 안 받음
+    Accepted,      // 받았지만 구역 진입 전
+    InProgress,    // 진입 후 ~ 완료 전. 죽어도 여기 머문다
+    Completed
+};
+```
+
+`bAccepted`, `bRunning`, `AttemptCount` 세 개를 하나로 합쳤다.
+`bool` 여러 개는 `bAccepted=false`인데 `bRunning=true` 같은 있을 수 없는 조합이 만들어질 수 있지만,
+열거형은 한 번에 한 값만 가져서 그런 상태 자체가 불가능하다.
+
+`InProgress`에 머무는 동안 트리거를 드나들어도 무시된다. 미션은 **한 번 시작되면 완료까지 진행 중**이다.
+사망은 `DeathCount`로만 센다. 미션 밖에서 죽으면 `State != InProgress`라 세지 않는다 — 랭크가 미션 안의 죽음만 반영하는 이유다.
+
+### 7-7. `SetupSegment()` — 처음부터 다시 도는 함수
+
+```text
+StartMission()      → DeathCount = 0 → SetupSegment()
+HandlePlayerDied()  → DeathCount++   → SetupSegment()
+```
+
+시작할 때와 죽은 뒤가 **같은 함수**를 부른다. 지금은 로그만 찍지만, 적 정리·생성이 여기 들어가면
+"죽으면 구간이 처음 상태로 돌아간다"가 코드 한 곳으로 보장된다. 별도의 재시도 경로는 없다.
+
+### 7-8. 트리거 볼륨 설정에서 걸린 것
+
+- **`WorldStatic`으로 두면 손이 꺾인다.** 1인칭 손 리그(`Ctrl_HandAdjusment_*`)가 총이 벽을 뚫지 않도록 지형을 훑는데,
+  트리거가 지형으로 분류돼 있으면 보이지 않는 벽으로 인식한다. `WorldDynamic`으로 분류만 바꾸면 해결된다.
+  응답 목록(`Pawn`만 `Overlap`)은 문제가 아니었고, 그대로 두어 충돌 단계에서 필터링한다.
+- **`RestartPoint`는 트리거 바깥.** 트리거 안에서 부활하면 그 자리에서 다시 시작되어 "건물에 진입하세요" 흐름이 성립하지 않는다.
+  `UArrowComponent`를 별도로 두고 에디터에서 문 밖으로 옮긴다.
+- **`UFUNCTION(Exec)`는 레벨 액터에서 안 된다.** 콘솔은 PlayerController → Pawn → HUD → GameMode → ... 정해진 목록만 뒤진다(`Player.cpp:122`).
+  미션 수락 디버그 명령은 `FAutoConsoleCommandWithWorld`로 `ND.AcceptMission`을 등록했다. `#if !UE_BUILD_SHIPPING`으로 감싼다.
+
+### 7-9. 이번에 쓴 API
+
+| | 뜻 |
+|---|---|
+| `DECLARE_MULTICAST_DELEGATE_OneParam(이름, 인자타입)` | 인자 하나 받는 델리게이트 타입. 구독자 여럿 가능 |
+| `.AddUObject(this, &클래스::함수)` | 이 객체의 이 함수를 구독으로 등록. 객체가 사라지면 자동 해제 |
+| `.Broadcast(인자)` | 등록된 함수를 전부 호출 |
+| `TWeakObjectPtr<T>` | 상대 수명에 영향 안 주는 포인터. 사라지면 `IsValid()`가 `false` |
+| `SetTimerForNextTick(람다)` | 다음 프레임에 실행. 초기화 순서 문제를 피할 때 |
+| `RestartPlayerAtTransform(컨트롤러, 트랜스폼)` | 지정 위치에 폰 스폰 + 빙의 |
+| `FAutoConsoleCommandWithWorld` | 어떤 객체에도 속하지 않는 콘솔 명령 등록 |
+
+### 7-10. 템플릿 원본을 건드린 유일한 곳
+
+`ShooterCharacter.h:178, 185` — `Die()`와 `OnRespawn()`에 `virtual`을 붙였다 (`b2a77e4`).
+동작은 바뀌지 않고 자식이 덮어쓸 수 있게 문만 연 변경이다.
+대안이었던 "게임모드에서 가로채기"는 죽음에서 세 단계 떨어진 곳에서 결정하게 되어 의도가 코드에 드러나지 않았다.
