@@ -8,6 +8,16 @@
 
 class UBoxComponent;
 class UArrowComponent;
+class ANeonDistrictCharacter;
+
+UENUM()
+enum class EMissionState : uint8
+{
+	NotAccepted,
+	Accepted,
+	InProgress,
+	Completed
+};
 
 UCLASS()
 class CYBERPUNKPROJECT_API ANeonDistrictMission : public AActor
@@ -23,17 +33,13 @@ class CYBERPUNKPROJECT_API ANeonDistrictMission : public AActor
 	UArrowComponent* RestartPoint;
 	
 protected:
-	/* NPC에게 미션을 받았는지 (false일 경우 구역에 들어와도 아무일도 일어나지 않음) */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Neon District")
-	bool bAccepted = false;
-	
-	/* 미션 구간이 진행 중인가 */
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Neon District")
-	bool bRunning = false;
+	EMissionState State = EMissionState::NotAccepted;
 	
-	/* 몇 번째 시도인지 - 랭크 계산에 사용 */
+	//진행 중 죽은 횟수, 랭크 계산에 사용
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Neon District")
-	int32 AttemptCount = 0;
+	int32 DeathCount = 0;
+	
 	
 public:	
 	// Sets default values for this actor's properties
@@ -41,8 +47,6 @@ public:
 
 	// NPC 대화가 끝나면 호출
 	void AcceptMission();
-	// 플레이어가 죽었을 때 게임모드가 알려준다
-	void OnPlayerDied();
 
 protected:
 	/* 구역 진입 감지 */
@@ -51,5 +55,14 @@ protected:
 	
 	/* 미션 구간 시작 */
 	void StartMission(APawn* Player);
+	
+	/** 새 폰이 생길 때마다 죽음 이벤트를 구독한다 */
+	void BindToPlayer(APawn* Player);
+
+	/** 플레이어 죽음 처리 */
+	void HandlePlayerDied(ANeonDistrictCharacter* Character);
+
+	/** 구간을 처음 상태로 세팅한다. 시작할 때와 죽은 뒤에 같이 쓴다 */
+	void SetupSegment();
 
 };

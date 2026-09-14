@@ -5,7 +5,8 @@
 #include "NeonDistrictGameMode.generated.h"
 
 class AShooterWeapon;
-class ANeonDistrictMission;
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnPlayerPawnReady, APawn*);
 
 UCLASS()
 class CYBERPUNKPROJECT_API ANeonDistrictGameMode : public AShooterGameMode
@@ -22,18 +23,16 @@ protected:
 	FTransform Checkpoint;
 	bool bHasCheckpoint = false;
 	
-	//지금 진행 중인 미션
-	TWeakObjectPtr<ANeonDistrictMission> ActiveMission;
-	
 public:
 	
 	ANeonDistrictGameMode();
+	
+	/** 폰이 스폰되고 무기까지 받은 뒤 방송된다 */
+	FOnPlayerPawnReady OnPlayerPawnReady;
 
 	// 미션 진행에 따라 재시작 지점을 옮긴다.
 	void SetCheckpoint(const FTransform& NewCheckpoint);
-	// 미션이 시작될 때 자기를 등록한다
-	void SetActiveMission(ANeonDistrictMission* Mission);
-
+	
 	
 protected:
 	

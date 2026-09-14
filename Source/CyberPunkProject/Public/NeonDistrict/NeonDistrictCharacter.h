@@ -9,6 +9,10 @@
 /**
  * 
  */
+
+class ANeonDistrictCharacter;
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnNeonCharacterDied, ANeonDistrictCharacter*)
+
 UCLASS()
 class CYBERPUNKPROJECT_API ANeonDistrictCharacter : public AShooterCharacter
 {
@@ -29,4 +33,8 @@ protected:
 	
 	UFUNCTION(Exec)
 	void NDKill();
+
+public:
+	// 죽을 때 방송된다. 미션이 구독한다.
+	FOnNeonCharacterDied OnDied;
 };

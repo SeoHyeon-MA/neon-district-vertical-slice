@@ -1,7 +1,6 @@
 ﻿#include "NeonDistrict/NeonDistrictGameMode.h"
 
 #include "EngineUtils.h"
-#include "NeonDistrictMission.h"
 #include "NeonDistrictPistol.h"
 #include "NeonDistrictRifle.h"
 #include "NeonDistrict/NeonDistrictWeapon.h"
@@ -27,26 +26,8 @@ void ANeonDistrictGameMode::SetCheckpoint(const FTransform& NewCheckpoint)
 	bHasCheckpoint = true;
 }
 
-void ANeonDistrictGameMode::SetActiveMission(ANeonDistrictMission* Mission)
-{
-	ActiveMission = Mission;
-}
-
-
 void ANeonDistrictGameMode::RestartPlayer(AController* NewPlayer)
 {
-	// 진행 중인 미션이 있으면 실패를 알린다
-	if (ActiveMission.IsValid())
-	{
-		ActiveMission->OnPlayerDied();
-	}
-	
-	if (bHasCheckpoint && NewPlayer)
-	{
-		RestartPlayerAtTransform(NewPlayer, Checkpoint);
-		return;
-	}
-	
 	// 체크포인트가 없으면 원래대로 PlayerStart 사용
 	Super::RestartPlayer(NewPlayer);
 }
@@ -102,6 +83,8 @@ void ANeonDistrictGameMode::SetPlayerDefaults(APawn* PlayerPawn)
 					WeaponHolder->AddWeaponClass(WeaponClass);
 				}
 			}
+			
+			OnPlayerPawnReady.Broadcast(WeakPawn.Get());
 		}
 	});
 }
