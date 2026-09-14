@@ -65,7 +65,7 @@
 |---|---|---|---|---|
 | 1 | 전용 GameMode 신설과 아레나 규칙 제거 | P0 | – | **완료** |
 | 2 | 상호작용 프레임워크 | P0 | – | 미착수 |
-| 3 | 미션 상태 머신과 상태 전파 | P0 | 1 | 뼈대 완료 — 3-A 결정 필요 |
+| 3 | 미션 상태 머신과 상태 전파 | P0 | 1 | 뼈대 완료 — 3-A 결정됨, 구현 중 |
 | 4 | Fixer NPC 대화와 미션 수락 | P1 | 2, 3 | 미착수 |
 | 5 | 적 AI 재설계 | P1 | 1, 3 | 미착수 |
 | 6 | 창고 키·창고·아이템, 셔터 개방 | P1 | 2, 3, 5 | 미착수 |
@@ -137,15 +137,41 @@ EMissionState:  NotAccepted → Accepted → InProgress → Completed
 - [x] `SetupSegment()` — 시작과 재시도가 같은 함수
 - [x] 콘솔 `ND.AcceptMission`
 
-**3-A. 결정 필요 — 세부 단계와 전파 방식.** 슬라이스에 미션이 하나뿐이므로 별도 서브시스템 없이 미션 액터가 전체 흐름을 들게 하는 것을 권장한다.
+**3-A. 결정 (9/14) — 공통 뼈대와 미션별 세부를 분리하고, 소비자는 질의 함수만 쓴다.**
 
-- [ ] `EMissionState`에 세부 단계 추가: `InProgress` 안을 `Fighting → KeyDropped → ItemAcquired → Returning` 으로 나누거나, 별도 `EMissionStep`으로 분리
-- [ ] `OnStateChanged` 멀티캐스트 델리게이트 — 창고 문·HUD·NPC·컷씬이 구독
-- [ ] 다른 액터가 미션을 찾는 통로: `UWorldSubsystem`에 "현재 미션" 등록, 또는 게임모드 방송 재사용. 게임모드가 미션을 직접 알게 하지는 않는다
-- [ ] 콘솔 `ND.SetMissionState <n>` — 다른 기능 없이도 전 구간 테스트
+`InProgress` 안의 세부 단계(적 처리 → 키 → 창고 → 아이템 → 복귀)를 어디에 둘지가 문제였다.
+한 열거형에 다 넣으면(A안) 미션 하나일 땐 단순하지만, 두 번째 미션부터 세부 단계가 섞인다.
+세부 단계는 미션마다 다르고 큰 흐름(수락 전/수락/진행/완료)·사망 횟수·재시도·랭크는 모든 미션이 같으므로,
+**공통은 부모에, 세부는 자식에** 둔다. 그리고 HUD·문·NPC가 열거형 값을 직접 보면 미션이 늘 때마다 같이 고쳐야 하므로
+**소비자는 `GetObjectiveText()` 같은 질의 함수만** 쓴다. 분리와 질의 둘 다 있어야 확장이 된다.
+
+```text
+ANeonDistrictMission (abstract, 공통 뼈대)
+  State, DeathCount, 진입 트리거, RestartPoint, OnDied/OnPlayerPawnReady 구독,
+  StartMission → SetupSegment(), HandlePlayerDied → SetupSegment(), CompleteMission → 랭크
+  virtual GetObjectiveText()    virtual SetupSegment()    OnStateChanged 방송
+
+  └─ AWarehouseMission (이번 슬라이스)
+       EStep { Fighting → KeyDropped → ItemAcquired → Returning }
+       GetObjectiveText() override — Step별 문구
+       SetupSegment() override — 적 정리·생성, Step = Fighting, 키·창고 원상복구
+
+소비자 (HUD, 창고 문, 셔터, Fixer) → Mission->GetObjectiveText() 등 질의만. 열거형 직접 참조 금지
+```
+
+원칙 둘. **부모는 미션이 뭔지 모른다** — 언제 시작하고 죽으면 어떻게 되고 몇 번 죽었는지만 안다.
+**소비자는 미션 내부를 모른다** — 지금 목표가 뭔지 묻고, 바뀌었다는 방송만 듣는다.
+두 번째 미션은 만들지 않는다. 만들 수 있는 구조라는 것만 보이면 된다.
+
+- [ ] 부모: `SetupSegment()`·`GetObjectiveText()`를 `virtual`로, `UCLASS(abstract)`로. `IsInProgress()`, `GetRank()` 질의
+- [ ] 부모: `OnStateChanged` 멀티캐스트 델리게이트, `State`가 바뀌는 곳마다 방송
+- [ ] `AWarehouseMission` 생성 — `EStep`, 두 오버라이드. 레벨의 미션 액터를 이 클래스로 교체
+- [ ] 콘솔 `ND.SetMissionStep <n>` — 다른 기능 없이도 단계 강제 전환
+- [ ] 소비자가 미션을 찾는 통로 — `UWorldSubsystem`에 현재 미션 등록. 게임모드는 미션을 모른다는 원칙 유지
+- [ ] HUD 목표 문구 위젯이 `OnStateChanged` 구독 → `GetObjectiveText()` 표시
 - [ ] `CompleteMission()` — `DeathCount`로 랭크 (0회 S / 1회 A / 2회 B / 3회↑ C)
 
-**완료 기준** — 콘솔로 상태를 강제 전환하면 HUD 목표 텍스트가 따라 바뀐다. 이후 모든 기능은 델리게이트에만 연결한다.
+**완료 기준** — 콘솔로 단계를 강제 전환하면 HUD 목표 문구가 따라 바뀐다. 이후 모든 기능은 델리게이트와 질의 함수에만 연결한다.
 
 ---
 
