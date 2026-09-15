@@ -42,7 +42,38 @@ void ANeonDistrictMission::AcceptMission()
 		State = EMissionState::Accepted;
 		
 		UE_LOG(LogTemp, Log, TEXT("[Mission] Accepted!"));
+		NotifyStateChanged();
 	}
+}
+
+FText ANeonDistrictMission::GetObjectiveText() const
+{
+	// 자식이 세부 단계에 맞는 문구로 덮어씀
+	switch (State)
+	{
+	case EMissionState::NotAccepted: return FText::GetEmpty();
+	case EMissionState::Accepted: return FText::FromString(TEXT("건물에 진입하세요"));
+	case EMissionState::Completed: return FText::FromString(TEXT("미션 완료"));
+	default: return FText::GetEmpty();
+	}
+}
+
+FText ANeonDistrictMission::GetRank() const
+{
+	if (DeathCount == 0) return FText::FromString(TEXT("S"));
+	if (DeathCount == 1) return FText::FromString(TEXT("A"));
+	if (DeathCount == 2) return FText::FromString(TEXT("B"));
+	return FText::FromString(TEXT("C"));
+}
+
+void ANeonDistrictMission::CompleteMission()
+{
+	if (State != EMissionState::InProgress) { return; }
+	State = EMissionState::Completed;
+	
+	UE_LOG(LogTemp, Warning, TEXT("[Mission] 완료 - 사망 %d회, 랭크 %s"), DeathCount, *GetRank().ToString());
+	
+	NotifyStateChanged();
 }
 
 void ANeonDistrictMission::OnEntryOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
@@ -80,6 +111,7 @@ void ANeonDistrictMission::StartMission(APawn* Player)
 	SetupSegment();
 	
 	UE_LOG(LogTemp, Warning, TEXT("[Mission] 시작"));
+	NotifyStateChanged();
 }
 
 void ANeonDistrictMission::BindToPlayer(APawn* Player)
@@ -98,6 +130,7 @@ void ANeonDistrictMission::HandlePlayerDied(ANeonDistrictCharacter* Character)
 	UE_LOG(LogTemp,Warning, TEXT("[Mission] 사망 %d회 - 구간 재시작"), DeathCount);
 	
 	SetupSegment();
+	NotifyStateChanged();
 }
 
 void ANeonDistrictMission::SetupSegment()
@@ -105,6 +138,12 @@ void ANeonDistrictMission::SetupSegment()
 	//적 정리, 생성
 	UE_LOG(LogTemp, Warning, TEXT("[Mission] 구간 세팅"));
 }
+
+void ANeonDistrictMission::NotifyStateChanged()
+{
+	OnStateChanged.Broadcast(this);
+}
+
 
 //############################디버그 설정##############
 #if !UE_BUILD_SHIPPING
