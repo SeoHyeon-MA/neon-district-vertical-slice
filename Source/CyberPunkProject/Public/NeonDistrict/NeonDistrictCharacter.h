@@ -12,6 +12,7 @@
 
 class ANeonDistrictCharacter;
 class UInteractionComponent;
+class UInputAction;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnNeonCharacterDied, ANeonDistrictCharacter*)
 
@@ -23,6 +24,9 @@ class CYBERPUNKPROJECT_API ANeonDistrictCharacter : public AShooterCharacter
 	// 앞을 훑어 상호작용 대상을 찾는다
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta=(AllowPrivateAccess=true))
 	UInteractionComponent* InteractionComponent;
+	
+	UPROPERTY(EditAnywhere, Category="Input")
+	UInputAction* InteractAction;
 	
 protected:
 	//죽고 나서 재시작까지의 시간
@@ -37,6 +41,10 @@ public:
 protected:
 	//리스폰 대신 재시작
 	virtual void Die() override;
+	
+	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+	
+	void DoInteract();
 	
 	//레벨을 처음부터 다시 연다
 	void RequestRestart();

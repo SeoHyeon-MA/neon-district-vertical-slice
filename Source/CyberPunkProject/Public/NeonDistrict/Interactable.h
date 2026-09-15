@@ -21,8 +21,8 @@ public:
 	virtual FText GetInteractionPrompt() const = 0;
 	
 	//지금 상호작용할 수 있는가. 잠긴 문이면 false
-	virtual bool CanInteract(APawn* Instigator) const { return true; }
+	virtual bool CanInteract(APawn* InteractingPawn) const { return true; }
 	
 	//실제 동작) 문이면 열리고, 키면 인벤토리에 들어간다
-	virtual void Interact(APawn* Instigator) = 0;
+	virtual void Interact(APawn* InteractingPawn) = 0;
 };

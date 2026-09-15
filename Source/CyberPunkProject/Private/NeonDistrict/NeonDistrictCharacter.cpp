@@ -6,6 +6,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/Controller.h"
 #include "Engine/DamageEvents.h"
+#include "EnhancedInputComponent.h"
 
 
 ANeonDistrictCharacter::ANeonDistrictCharacter()
@@ -25,6 +26,24 @@ void ANeonDistrictCharacter::Die()
 	
 	//대신 잠시 뒤 레벨을 다시 시작
 	GetWorldTimerManager().SetTimer(RestartTimer, this, &ANeonDistrictCharacter::RequestRestart, RestartDelay, false);
+}
+
+void ANeonDistrictCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+	
+	if (UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(PlayerInputComponent))
+	{
+		if (InteractAction)
+		{
+			EnhancedInput->BindAction(InteractAction, ETriggerEvent::Started, this, &ANeonDistrictCharacter::DoInteract);
+		}
+	}
+}
+
+void ANeonDistrictCharacter::DoInteract()
+{
+	InteractionComponent->TryInteract();
 }
 
 void ANeonDistrictCharacter::RequestRestart()
