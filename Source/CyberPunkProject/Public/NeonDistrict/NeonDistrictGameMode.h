@@ -36,7 +36,6 @@ public:
 	
 protected:
 	
-	//플레이어가 스폰되어 폰에 빙의한 직후 호출된다
 	/** 폰·컨트롤러·UI 클래스는 생성자가 아니라 여기서 로드한다 */
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 

@@ -1,14 +1,11 @@
 ﻿#include "NeonDistrict/NeonDistrictGameMode.h"
 
-#include "EngineUtils.h"
-#include "NeonDistrictPistol.h"
-#include "NeonDistrictRifle.h"
-#include "NeonDistrict/NeonDistrictWeapon.h"
-#include "UObject/ConstructorHelpers.h"                    // ← ConstructorHelpers::FClassFinder
+#include "NeonDistrict/NeonDistrictPistol.h"
+#include "NeonDistrict/NeonDistrictRifle.h"
 #include "Variant_Shooter/Weapons/ShooterWeaponHolder.h"   // ← IShooterWeaponHolder
-#include "GameFramework/PlayerController.h"                // ← WeakPC->GetPawn()
+#include "GameFramework/PlayerController.h"                // ← LoadClass<APlayerController>
 #include "GameFramework/Pawn.h"
-#include "Variant_Shooter/UI/ShooterUI.h"                            // ← FClassFinder<APawn>
+#include "Variant_Shooter/UI/ShooterUI.h"                  // ← ShooterUIClass
 #include "TimerManager.h"
 #include "Engine/World.h"
 
@@ -27,6 +24,12 @@ void ANeonDistrictGameMode::SetCheckpoint(const FTransform& NewCheckpoint)
 
 void ANeonDistrictGameMode::RestartPlayer(AController* NewPlayer)
 {
+	if (bHasCheckpoint && NewPlayer)
+	{
+		RestartPlayerAtTransform(NewPlayer, Checkpoint);
+		return;
+	}
+	
 	// 체크포인트가 없으면 원래대로 PlayerStart 사용
 	Super::RestartPlayer(NewPlayer);
 }
@@ -35,7 +38,6 @@ void ANeonDistrictGameMode::InitGame(const FString& MapName, const FString& Opti
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	// 템플릿 셔터 캐릭터 (메시와 애니메이션이 들어 있다)
 	if (UClass* PawnClass = LoadClass<APawn>(nullptr,
 		TEXT("/Game/NeonDistrict/Blueprints/BP_NeonDistrictCharacter.BP_NeonDistrictCharacter_C")))
 	{

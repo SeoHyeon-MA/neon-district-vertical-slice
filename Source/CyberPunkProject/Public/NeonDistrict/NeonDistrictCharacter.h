@@ -21,14 +21,14 @@ class CYBERPUNKPROJECT_API ANeonDistrictCharacter : public AShooterCharacter
 {
 	GENERATED_BODY()
 	
+protected:
 	// 앞을 훑어 상호작용 대상을 찾는다
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta=(AllowPrivateAccess=true))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
 	UInteractionComponent* InteractionComponent;
 	
 	UPROPERTY(EditAnywhere, Category="Input")
 	UInputAction* InteractAction;
 	
-protected:
 	//죽고 나서 재시작까지의 시간
 	UPROPERTY(EditDefaultsOnly, Category="NeonDistrict", meta=(ClampMin=0, ClampMax=10))
 	float RestartDelay = 2.f;
