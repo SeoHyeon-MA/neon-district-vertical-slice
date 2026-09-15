@@ -3,7 +3,7 @@
 이 프로젝트 고유의 게임플레이 C++ 코드(`Source/CyberPunkProject/*/NeonDistrict/`)가
 무엇을 하고, 왜 그렇게 짰는지 정리한 문서다.
 
-기준 시점: `ece1d88 refactor: let the mission own its retry loop through delegates` (2026-09-14).
+기준 시점: `6b74c27 feat: show an interaction prompt while looking at a target` (2026-09-15).
 4절은 초기 작성 당시(2026-09-08)의 변경 기록이라 그대로 두었다. 최신 흐름은 7절을 본다.
 
 ---
@@ -22,7 +22,7 @@ AGameModeBase
 ACharacter
  └─ ACyberPunkProjectCharacter (템플릿 — 1인칭 카메라, 이동)
      └─ AShooterCharacter       (템플릿 — 사격, 체력, 사망)
-         └─ ANeonDistrictCharacter  ← 리스폰 대신 재시작 요청, OnDied 방송
+         └─ ANeonDistrictCharacter  ← 리스폰 대신 재시작 요청, OnDied 방송, 상호작용
              └─ BP_NeonDistrictCharacter (BP_ShooterCharacter 복제 후 부모 변경 — 메시·애님·입력)
 
 AActor
@@ -38,10 +38,14 @@ AActor
 | 파일 | 역할 |
 |---|---|
 | `NeonDistrictGameMode.h/.cpp` | 폰·컨트롤러·UI 클래스 지정(`InitGame`), 스폰마다 무기 지급(`SetPlayerDefaults`), 체크포인트 재시작(`RestartPlayer`), `OnPlayerPawnReady` 방송 |
-| `NeonDistrictCharacter.h/.cpp` | `Die()` 오버라이드 — 템플릿 리스폰 취소, 지연 후 재시작 요청, `OnDied` 방송. 콘솔용 `NDKill` |
+| `NeonDistrictCharacter.h/.cpp` | `Die()` 오버라이드 — 템플릿 리스폰 취소, 지연 후 재시작 요청, `OnDied` 방송. 상호작용 컴포넌트·E키 바인딩·프롬프트 위젯 생성. 콘솔용 `NDKill` |
 | `NeonDistrictWeapon.h/.cpp` | 스태틱 메시 총 컴포넌트, 에셋 소프트 참조, `BeginPlay`에서 로드·오프셋 적용 |
 | `NeonDistrictPistol.h/.cpp`, `NeonDistrictRifle.h/.cpp` | 생성자에서 경로·오프셋·탄창·연사만 채움 |
 | `NeonDistrictMission.h/.cpp` | 진입 트리거, `EMissionState`, `DeathCount`, 델리게이트 구독, `SetupSegment` 루프. 콘솔용 `ND.AcceptMission` |
+| `Interactable.h` | `IInteractable` — 프롬프트 문구·가능 여부·실행. 문·키·창고·NPC가 구현 |
+| `InteractionComponent.h/.cpp` | 시선 앞 탐색, 대상 변경 방송, E키 처리. 캐릭터에 부착 |
+| `InteractionPromptWidget.h/.cpp` | 대상 변경 구독, 문구 표시·숨김. UMG는 `WBP_InteractionPrompt` |
+| `InteractableTest.h/.cpp` | 배선 검증용 최소 구현체 |
 
 헤더는 `Public/NeonDistrict/`, 구현은 `Private/NeonDistrict/`에 있다.
 
@@ -430,3 +434,94 @@ HandlePlayerDied()  → DeathCount++   → SetupSegment()
 `ShooterCharacter.h:178, 185` — `Die()`와 `OnRespawn()`에 `virtual`을 붙였다 (`b2a77e4`).
 동작은 바뀌지 않고 자식이 덮어쓸 수 있게 문만 연 변경이다.
 대안이었던 "게임모드에서 가로채기"는 죽음에서 세 단계 떨어진 곳에서 결정하게 되어 의도가 코드에 드러나지 않았다.
+
+---
+
+## 8. 상호작용 프레임워크 — E키와 프롬프트
+
+로드맵 2번. 문, 창고 키, 창고, Fixer NPC가 공통으로 쓸 배선이다.
+관련 커밋: `c9aafb5`, `4aed58b`, `fb4baaf`, `6b74c27`.
+
+### 8-1. 전체 흐름
+
+```text
+[매 틱]
+UInteractionComponent::UpdateTarget()
+  카메라 시점에서 앞으로 TraceDistance(200cm) 라인 트레이스 (ECC_Visibility)
+  맞은 액터가 IInteractable 인가 — Implements<UInteractable>()
+  대상이 "바뀌었을 때만" OnTargetChanged 방송
+        │
+        ▼
+UInteractionPromptWidget::HandleTargetChanged(NewTarget)
+  대상 있음 → GetInteractionPrompt() → BP_UpdatePrompt() → HitTestInvisible
+  대상 없음 → Collapsed
+
+[E 키]
+IA_Interact (IMC_Default 에 E)
+  → ANeonDistrictCharacter::DoInteract()
+  → UInteractionComponent::TryInteract()
+       CanInteract(폰) 확인 → Interact(폰)
+```
+
+### 8-2. 조각별 역할
+
+| 조각 | 역할 |
+|---|---|
+| `IInteractable` | 약속 셋 — `GetInteractionPrompt()` `CanInteract()` `Interact()` |
+| `UInteractionComponent` | 탐색·방송·E키 처리. 캐릭터에 부착 |
+| `UInteractionPromptWidget` | 방송 구독, 문구 전달, 표시·숨김 (`UCLASS(abstract)`) |
+| `WBP_InteractionPrompt` | 텍스트 블록 배치, `Update Prompt` 이벤트에서 `SetText` |
+| `AInteractableTest` | 배선 검증용 최소 구현체 |
+
+### 8-3. 설계 판단
+
+**인터페이스로 묶는다.** 문·키·창고·NPC는 서로 다른 클래스지만 플레이어에게는 똑같이 "E를 누르는 것"이다.
+컴포넌트가 구체 클래스를 하나도 모르게 되고, 템플릿의 `IShooterWeaponHolder`가 픽업·플레이어·NPC를 묶는 방식과 같다.
+
+**캐릭터가 아니라 컴포넌트.** 캐릭터 클래스가 더 커지지 않고, 나중에 다른 폰에도 붙일 수 있다.
+
+**바뀔 때만 방송한다.** 매 틱 방송하면 위젯이 매 프레임 갱신된다. 대상이 같으면 조용히 넘어간다.
+
+**문구는 대상이 제공한다.** 컴포넌트나 위젯이 "문이면 문 열기"를 판단하지 않는다.
+각 액터가 자기 문구를 답하므로, 새 상호작용물을 추가해도 위젯 코드는 그대로다.
+7절의 "소비자는 미션 내부를 모른다"와 같은 원칙이다.
+
+**C++은 로직, UMG는 겉모습.** `BP_UpdatePrompt`를 `BlueprintImplementableEvent`로 선언만 하고
+구현은 블루프린트가 한다. 템플릿 `UShooterUI`의 `BP_UpdateScore`와 같은 형태다.
+
+### 8-4. 걸렸던 것
+
+- **`override`가 오타를 잡아줬다.** `SetupPlayerInputComponents`로 `s`를 하나 더 쓰자 컴파일 에러가 났다.
+  `override`가 없었다면 조용히 새 함수가 하나 생기고 부모 함수는 그대로 남아, E키가 안 먹는 원인을 찾기 어려웠을 것이다.
+- **`error C4458: 'Instigator'가 클래스 멤버를 숨깁니다.** `AActor`에 이미 `Instigator` 멤버가 있다(`Actor.h:1010`).
+  인터페이스의 매개변수 이름을 `InteractingPawn`으로 바꿔 근본에서 해결했다 — 앞으로 만들 문·키·NPC가 전부 `AActor` 자손이라
+  그대로 뒀으면 매번 같은 에러를 만났을 것이다.
+- **UMG에서 `Set Text` 노드가 안 보인다.** Context Sensitive 검색은 타깃이 정해져야 후보를 보여준다.
+  변수를 먼저 그래프에 놓고 그 핀에서 선을 끌어야 나온다.
+
+### 8-5. 이번에 쓴 API
+
+| | 뜻 |
+|---|---|
+| `UINTERFACE(MinimalAPI)` + `I` 클래스 | 언리얼 인터페이스는 클래스 두 개. 함수는 `I` 쪽에, 상속도 `I` 쪽 |
+| `Implements<UInterface>()` | 인터페이스 구현 여부 검사. `Cast`보다 가벼워 매 틱 검사에 적합 |
+| `GetPlayerViewPoint()` | 폰이 아니라 카메라의 위치·방향. 컨트롤러를 거치므로 어떤 폰이든 통한다 |
+| `BlueprintImplementableEvent` | C++ 선언, 블루프린트 구현. `.cpp`에 본문을 쓰지 않는다 |
+| `ESlateVisibility::HitTestInvisible` | 보이되 입력을 가로채지 않는다. HUD 요소의 기본 선택 |
+| `ESlateVisibility::Collapsed` | 공간까지 차지하지 않는다 (`Hidden`은 자리를 남긴다) |
+| `NativeDestruct()` | 위젯 정리 시점. 위젯은 파괴되지 않고 내려갔다 올라올 수 있어 여기서 구독을 끊는다 |
+
+### 8-6. 새 상호작용물 추가하는 법
+
+`AInteractableTest`가 최소 템플릿이다. 이것만 하면 프롬프트 표시와 E키 처리는 자동으로 붙는다.
+
+```cpp
+class AWarehouseDoor : public AActor, public IInteractable
+{
+    virtual FText GetInteractionPrompt() const override;                  // "창고 열기" / "잠겨 있다"
+    virtual bool CanInteract(APawn* InteractingPawn) const override;      // 키가 없으면 false
+    virtual void Interact(APawn* InteractingPawn) override;               // 문 열기
+};
+```
+
+`CanInteract`는 기본값이 `true`라 조건이 없는 대상은 생략해도 된다.
