@@ -11,12 +11,18 @@
  */
 
 class ANeonDistrictCharacter;
+class UInteractionComponent;
+
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnNeonCharacterDied, ANeonDistrictCharacter*)
 
 UCLASS()
 class CYBERPUNKPROJECT_API ANeonDistrictCharacter : public AShooterCharacter
 {
 	GENERATED_BODY()
+	
+	// 앞을 훑어 상호작용 대상을 찾는다
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta=(AllowPrivateAccess=true))
+	UInteractionComponent* InteractionComponent;
 	
 protected:
 	//죽고 나서 재시작까지의 시간
@@ -25,6 +31,10 @@ protected:
 	
 	FTimerHandle RestartTimer;
 	
+public:
+	ANeonDistrictCharacter();
+	
+protected:
 	//리스폰 대신 재시작
 	virtual void Die() override;
 	

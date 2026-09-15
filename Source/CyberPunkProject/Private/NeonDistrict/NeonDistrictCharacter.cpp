@@ -2,10 +2,16 @@
 
 
 #include "NeonDistrict/NeonDistrictCharacter.h"
+#include "NeonDistrict/InteractionComponent.h"
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/Controller.h"
 #include "Engine/DamageEvents.h"
 
+
+ANeonDistrictCharacter::ANeonDistrictCharacter()
+{
+	InteractionComponent = CreateDefaultSubobject<UInteractionComponent>(TEXT("Interaction"));
+}
 
 void ANeonDistrictCharacter::Die()
 {
