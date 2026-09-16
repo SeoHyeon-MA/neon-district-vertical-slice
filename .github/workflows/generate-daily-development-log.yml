@@ -67,7 +67,24 @@ jobs:
           endpoint="${ai_api_url%/}"
           [[ "$endpoint" == */chat/completions ]] || endpoint="$endpoint/chat/completions"
           request=$(jq -n --arg model "$ai_model" --arg prompt "$prompt" --rawfile commits "$commit_file" '{model:$model,messages:[{role:"user",content:($prompt + "\n\n커밋 내역:\n" + $commits)}],temperature:0.2}')
-          response=$(curl --fail-with-body --silent --show-error --retry 2 -H 'Content-Type: application/json' -H "Authorization: Bearer $ai_api_key" --data "$request" "$endpoint")
+          response_file=$(mktemp)
+          trap 'rm -f "$response_file"' EXIT
+          curl_exit=0
+          set +e
+          http_status=$(curl --fail-with-body --silent --show-error --retry 2 --retry-delay 3 --output "$response_file" --write-out '%{http_code}' -H 'Content-Type: application/json' -H "Authorization: Bearer $ai_api_key" --data "$request" "$endpoint")
+          curl_exit=$?
+          set -e
+          response=$(<"$response_file")
+          if [[ "$curl_exit" -ne 0 || "$http_status" -lt 200 || "$http_status" -ge 300 ]]; then
+            echo "AI API request failed: curl_exit=$curl_exit, http_status=$http_status, endpoint=$endpoint" >&2
+            if [[ -n "$response" ]]; then
+              echo 'AI API response body:' >&2
+              echo "$response" >&2
+            else
+              echo 'AI API response body was empty.' >&2
+            fi
+            exit 1
+          fi
           content=$(jq -r '.choices[0].message.content // empty' <<< "$response")
           [[ -n "$content" ]] || { echo 'AI response did not contain choices[0].message.content.' >&2; exit 1; }
           file_name="development-log-$report_date.md"
