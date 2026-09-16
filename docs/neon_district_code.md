@@ -3,7 +3,8 @@
 이 프로젝트 고유의 게임플레이 C++ 코드(`Source/CyberPunkProject/*/NeonDistrict/`)가
 무엇을 하고, 왜 그렇게 짰는지 정리한 문서다.
 
-기준 시점: `6b74c27 feat: show an interaction prompt while looking at a target` (2026-09-15).
+기준 시점: `c27b387 feat: split the mission into an abstract base and a warehouse subclass` (2026-09-16).
+새 클래스를 만들 때 헤더 안의 배치 순서는 9절 코딩 규약을 따른다.
 4절은 초기 작성 당시(2026-09-08)의 변경 기록이라 그대로 두었다. 최신 흐름은 7절을 본다.
 
 ---
@@ -525,3 +526,152 @@ class AWarehouseDoor : public AActor, public IInteractable
 ```
 
 `CanInteract`는 기본값이 `true`라 조건이 없는 대상은 생략해도 된다.
+
+---
+
+## 9. 코딩 규약 — 헤더 안의 배치 순서
+
+Epic 템플릿(`ShooterCharacter.h`, `ShooterWeapon.h`)이 쓰는 순서를 그대로 따른다.
+이 프로젝트 안에서 일관성이 생기고, 다른 언리얼 코드를 읽을 때도 같은 자리에서 같은 것을 찾게 된다.
+
+### 9-1. 원칙 하나
+
+**데이터 → 생성 → 엔진이 부르는 것 → 남이 부르는 것 → 내부.**
+
+읽는 사람은 "이 클래스가 뭘 갖고 있나 → 어떻게 만들어지나 → 언제 동작하나 → 나는 뭘 부를 수 있나" 순서로 궁금해한다. 그 순서대로 놓는다.
+
+### 9-2. 형식
+
+```cpp
+#pragma once
+
+#include "CoreMinimal.h"
+#include "부모/헤더.h"
+#include "인터페이스.h"                    // 구현하는 인터페이스
+#include "이파일이름.generated.h"          // 반드시 마지막
+
+// ── 전방 선언 ──
+class UBoxComponent;
+class AShooterWeapon;
+
+// ── 열거형 / 델리게이트 (이 클래스 전용이면 여기) ──
+UENUM()
+enum class EMyState : uint8 { ... };
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnSomething, AActor*);
+
+/**
+ *  클래스가 뭔지 한두 줄
+ */
+UCLASS()
+class CYBERPUNKPROJECT_API AMyActor : public AActor, public IInteractable
+{
+	GENERATED_BODY()
+
+	// ① 컴포넌트 — private + AllowPrivateAccess. 생성자에서만 만들고 밖에서 교체 안 함
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta=(AllowPrivateAccess="true"))
+	UBoxComponent* Trigger;
+
+protected:
+
+	// ② 설정값 — EditAnywhere / EditDefaultsOnly. 에디터에서 조정하는 것
+	UPROPERTY(EditDefaultsOnly, Category="MyActor")
+	float Delay = 2.0f;
+
+	// ③ 런타임 상태 — VisibleInstanceOnly 또는 UPROPERTY 없음. 게임 중에 바뀌는 것
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="MyActor")
+	EMyState State = EMyState::Idle;
+
+	int32 Count = 0;
+	FTimerHandle Timer;
+	TWeakObjectPtr<AActor> Target;
+
+public:
+
+	// ④ 생성자
+	AMyActor();
+
+	// ⑤ 델리게이트 — 남이 구독하는 것
+	FOnSomething OnSomething;
+
+protected:
+
+	// ⑥ 엔진 오버라이드 — BeginPlay, Tick, EndPlay, SetupPlayerInputComponent ...
+	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaTime) override;
+
+public:
+
+	// ⑦ 인터페이스 구현
+	//~ Begin IInteractable
+	virtual FText GetInteractionPrompt() const override;
+	virtual void Interact(APawn* InteractingPawn) override;
+	//~ End IInteractable
+
+	// ⑧ 공개 API — 남이 부르는 함수. 질의(const) 먼저, 명령 나중
+	EMyState GetState() const { return State; }
+	bool IsActive() const;
+
+	void Activate();
+	void Reset();
+
+protected:
+
+	// ⑨ 자식이 덮어쓰는 것 — 우리가 만든 virtual 확장점
+	virtual void OnActivated();
+
+	// ⑩ 내부 구현 — 델리게이트 핸들러, 헬퍼. 밖에서 안 부름
+	UFUNCTION()
+	void HandleOverlap(...);
+
+	void UpdateSomething();
+};
+```
+
+### 9-3. 구역별 기준
+
+| 구역 | 접근 | 들어가는 것 | 판단 기준 |
+|---|---|---|---|
+| ① 컴포넌트 | private | `CreateDefaultSubobject`로 만드는 것 | 생성자 밖에서 바뀌면 안 되는 것 |
+| ② 설정값 | protected | `EditAnywhere`, `EditDefaultsOnly` | 에디터에서 손으로 조정하는 것 |
+| ③ 런타임 상태 | protected | `VisibleInstanceOnly`, UPROPERTY 없음 | 게임 중에 코드가 바꾸는 것 |
+| ④ 생성자 | public | | |
+| ⑤ 델리게이트 | public | `FOn...` | 남이 구독해야 하니 public |
+| ⑥ 엔진 오버라이드 | protected | `BeginPlay`, `Tick` ... | 엔진만 부르니 protected |
+| ⑦ 인터페이스 구현 | public | `//~ Begin` ~ `//~ End` | 인터페이스는 public이 원칙 |
+| ⑧ 공개 API | public | 질의 → 명령 순 | 남이 부르는 것 |
+| ⑨ 자식 확장점 | protected | 우리가 만든 `virtual` | 자식만 덮어쓰니 protected |
+| ⑩ 내부 구현 | protected / private | 핸들러, 헬퍼 | 아무도 안 부름 |
+
+### 9-4. 자주 헷갈리는 것
+
+- **public인가 protected인가** — 딱 하나만 묻는다: *이 클래스 밖에서 부를 일이 있나?* 있으면 public, 없으면 protected, 자식조차 안 부르면 private.
+- **`virtual`은 어디에** — 엔진 것(`BeginPlay`)은 ⑥, 인터페이스 것은 ⑦, 우리가 만든 확장점은 ⑧ 또는 ⑨.
+  남이 부르기도 하는 `GetObjectiveText`는 ⑧, 자식만 덮어쓰는 `SetupSegment`는 ⑨.
+- **`UFUNCTION()` 핸들러** — `AddDynamic`으로 묶는 함수는 `UFUNCTION()`이 필요하고 ⑩에 둔다. 밖에서 부를 일이 없다.
+- **접근 지정자가 여러 번 나와도 된다.** `public:` → `protected:` → `public:` 반복이 이상해 보이지만 템플릿도 그렇게 쓴다.
+  구역별로 의미가 분명한 것이 지정자를 한 번만 쓰는 것보다 낫다.
+- **매개변수 이름은 `AActor` 멤버와 겹치지 않게.** `Instigator`, `Owner`, `Tags` 등은 이미 있다 (8-4 참고).
+
+### 9-5. `.cpp` 순서
+
+헤더 순서를 그대로 따른다. 파일 맨 아래에 `#if !UE_BUILD_SHIPPING`으로 감싼 디버그 콘솔 명령을 둔다.
+
+```cpp
+#include "자기 헤더"                 // 반드시 첫 줄
+#include "프로젝트 헤더들"
+#include "엔진 헤더들"
+
+생성자
+엔진 오버라이드
+인터페이스 구현
+공개 API
+확장점
+내부 구현
+
+#if !UE_BUILD_SHIPPING
+디버그 콘솔 명령
+#endif
+```
+
+include 경로는 `NeonDistrict/파일.h`처럼 **폴더를 포함한 형태**로 통일한다. `Public/`이 인클루드 경로라 짧게 써도 빌드는 되지만, 어느 모듈 것인지 한눈에 보이게 한다.
