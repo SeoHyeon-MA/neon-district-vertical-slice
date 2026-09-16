@@ -163,15 +163,34 @@ ANeonDistrictMission (abstract, 공통 뼈대)
 **소비자는 미션 내부를 모른다** — 지금 목표가 뭔지 묻고, 바뀌었다는 방송만 듣는다.
 두 번째 미션은 만들지 않는다. 만들 수 있는 구조라는 것만 보이면 된다.
 
-- [ ] 부모: `SetupSegment()`·`GetObjectiveText()`를 `virtual`로, `UCLASS(abstract)`로. `IsInProgress()`, `GetRank()` 질의
-- [ ] 부모: `OnStateChanged` 멀티캐스트 델리게이트, `State`가 바뀌는 곳마다 방송
-- [ ] `AWarehouseMission` 생성 — `EStep`, 두 오버라이드. 레벨의 미션 액터를 이 클래스로 교체
+- [x] 부모: `SetupSegment()`·`GetObjectiveText()`를 `virtual`로, `UCLASS(abstract)`로. `IsInProgress()`, `GetRank()` 질의 (`c27b387`)
+- [x] 부모: `OnStateChanged` 멀티캐스트 델리게이트, `NotifyStateChanged()` 한 곳에서 방송
+- [x] `AWarehouseMission` 생성 — `EWarehouseStep`, 두 오버라이드. 레벨의 미션 액터 교체
 - [ ] 콘솔 `ND.SetMissionStep <n>` — 다른 기능 없이도 단계 강제 전환
 - [ ] 소비자가 미션을 찾는 통로 — `UWorldSubsystem`에 현재 미션 등록. 게임모드는 미션을 모른다는 원칙 유지
 - [ ] HUD 목표 문구 위젯이 `OnStateChanged` 구독 → `GetObjectiveText()` 표시
 - [ ] `CompleteMission()` — `DeathCount`로 랭크 (0회 S / 1회 A / 2회 B / 3회↑ C)
 
 **완료 기준** — 콘솔로 단계를 강제 전환하면 HUD 목표 문구가 따라 바뀐다. 이후 모든 기능은 델리게이트와 질의 함수에만 연결한다.
+
+**3-B. 결정 (9/16) — 구간 초기화는 런타임 데이터 레이어 재활성화로.**
+
+`SetupSegment()`를 적 정리·키 회수·문 잠금 코드로 채우는 대신, 적·키·창고 문을 **`DL_Mission` 런타임 데이터 레이어**에 넣고
+`Unloaded → Activated`로 전환한다. 레이어 안의 액터가 전부 에디터 저장 상태로 재로드되므로 수동 리셋 코드가 없고,
+되돌릴 대상이 늘어도 누락이 생기지 않는다.
+
+"미션 구역을 별도 레벨로 운영하는 게 나았을까"라는 질문에서 나온 결론이다. 별도 레벨의 이점(재로드 = 전체 초기화)은 맞지만,
+초기화되면 안 되는 것(`State`, `DeathCount`)은 어차피 레벨 밖에 있어야 하므로 미션 액터는 그대로 필요하다.
+두 방식은 대립하지 않고, 달라지는 건 `SetupSegment()`의 구현뿐이다. World Partition에서 서브레벨에 해당하는 단위가
+런타임 데이터 레이어라 별도 레벨 파일도 필요 없다.
+
+부수 효과: 수락 전에는 레이어를 `Unloaded`로 두면 "미션 미수락 시 적 없음"이 코드 없이 충족된다. 적은 스포너 대신 에디터 직접 배치.
+
+유의: 활성화는 비동기다(완료 델리게이트 구독 필요할 수 있음). 미션 액터·트리거·부활 지점은 절대 이 레이어에 넣지 않는다.
+
+- [ ] `DL_Mission` 런타임 데이터 레이어 생성, 초기 상태 `Unloaded`
+- [ ] `AWarehouseMission`에 레이어 참조 프로퍼티, `SetupSegment()`에서 `UDataLayerManager`로 재활성화
+- [ ] 로드 완료 시점 확인 — 필요하면 완료 델리게이트 구독
 
 ---
 
@@ -207,7 +226,7 @@ B 대로 `MRK_Fixer` (-3000, 600)의 NPC와 대화해 퀘스트를 수락한다.
 - [ ] Investigate 태스크 — 마지막 인지 위치로 이동, 탐색 후 미발견 시 Patrol 복귀
 - [ ] 시야/소리 자극에 따른 상태 전이 조건 정리 (`AIPerception` 델리게이트는 기존 것 사용)
 - [ ] 스포너 리스폰 비활성화, 적 5명 고정 배치 (D 골목 2, E 광장 1, F 1F 1, F 2F 1)
-- [ ] **미션 `SetupSegment()`에 스폰·정리 연결** — 미션 시작 시 생성, 사망 시 남은 적 제거 후 재생성. 미션 미수락 상태에서는 적이 없어야 한다
+- [ ] **적 5명을 `DL_Mission` 레이어에 직접 배치** — 스포너 대신. 미션 시작·사망 시 `SetupSegment()`의 레이어 재활성화로 초기화된다 (3-B). 미수락 시 레이어 `Unloaded`라 적 없음
 - [ ] 마지막 적 사망 시 창고 키 드롭 (6번과 맞물림)
 
 **완료 기준** — 적이 지정 경로를 순찰하다 플레이어를 감지하면 추격·교전하고, 놓치면 마지막 위치를 조사한 뒤 순찰로 복귀한다. 사망한 적은 리스폰하지 않는다.
@@ -226,7 +245,7 @@ B 대로 `MRK_Fixer` (-3000, 600)의 NPC와 대화해 퀘스트를 수락한다.
 - [ ] 아이템(데이터칩) 픽업 — 창고 안, 획득 시 미션 상태 `ItemAcquired`
 - [ ] 획득 알림 UI + 사운드·이펙트 자리 확보
 - [ ] 셔터 액터 — 미션 `OnStateChanged` 구독, `ItemAcquired`에서 개방
-- [ ] 사망 시 `SetupSegment()`가 떨어진 키·열린 창고를 원상복구하는지 확인
+- [ ] 키·창고 문을 `DL_Mission` 레이어에 넣고, 사망 시 레이어 재활성화로 원상복구되는지 확인 (3-B)
 - [ ] 복귀 동선 실제 통행 검증 (셔터 통과 → 대로 → Fixer)
 
 **완료 기준** — 마지막 적을 잡으면 키가 떨어지고, 키로 창고를 열어 아이템을 얻으면 목표가 "Fixer에게 복귀"로 바뀌며 셔터가 열린다.
@@ -355,9 +374,9 @@ README의 Disclaimer가 밝힌 대로 이 프로젝트의 리소스는 직접 �
 
 | 기간 | 핵심 목표 | 항목 | 세부 작업 | 주간 결과물 |
 |---|---|---|---|---|
-| **9/14 ~ 9/20** | 게임플레이 뼈대 완성 | 2, 3 | ~~GameMode·Character·시작 무기·리스폰~~ (9/8~9/14 완료) / `IInteractable` + `UInteractionComponent` + E키 프롬프트 UI / 미션 세부 단계·`OnStateChanged`·`ND.SetMissionState` (3-A) / `SetupSegment()`에 적 스폰·정리 자리 마련 | 문 상호작용 동작. 콘솔로 미션 상태를 바꾸면 HUD 목표 문구가 따라옴. 미션 시작 시 적이 생기고 죽으면 리셋되는 뼈대 |
+| **9/14 ~ 9/20** | 게임플레이 뼈대 완성 | 2, 3 | ~~GameMode·Character·시작 무기·리스폰~~ (9/8~9/14 완료) / `IInteractable` + `UInteractionComponent` + E키 프롬프트 UI / 미션 세부 단계·`OnStateChanged`·`ND.SetMissionState` (3-A) / `SetupSegment()` 데이터 레이어 재활성화 (3-B) | 문 상호작용 동작. 콘솔로 미션 상태를 바꾸면 HUD 목표 문구가 따라옴. 미션 시작 시 적이 생기고 죽으면 리셋되는 뼈대 |
 | **9/21 ~ 9/27** | 미션 흐름 완주 | 4, 6 | Fixer NPC + 통화형 대화 UI / 수락으로 `Accepted` / 상태별 대사 분기 / 마지막 적 → 창고 키 드롭 / 창고 문 / 아이템 획득 → `ItemAcquired` / 셔터 개방 / Fixer 복귀 → `Completed` + 랭크 / NPC 종료 위치 이동 | `통화 → 수락 → 진입 → (적 자리에 임시 타깃) → 키 → 창고 → 아이템 → 셔터 → 복귀 → 랭크` 가 플레이로 이어짐. 적은 아직 임시 |
-| **9/28 ~ 10/4** | 적 AI와 전투 | 5, 7 일부 | NavMesh 검증 / 순찰 경로 액터 / Patrol·Investigate 태스크 / 상태 전이 / 적 5명 고정 배치, 무한 리스폰 제거 / `SetupSegment` 연결 / 체력·크로스헤어·피격 HUD | 8~12분 흐름 안에서 실제 전투. 죽으면 적이 리셋되고 사망 횟수가 랭크에 반영 |
+| **9/28 ~ 10/4** | 적 AI와 전투 | 5, 7 일부 | NavMesh 검증 / 순찰 경로 액터 / Patrol·Investigate 태스크 / 상태 전이 / 적 5명 `DL_Mission`에 직접 배치, 무한 리스폰 제거 / 체력·크로스헤어·피격 HUD | 8~12분 흐름 안에서 실제 전투. 죽으면 적이 리셋되고 사망 횟수가 랭크에 반영 |
 | **10/5 ~ 10/11** | 환경 아트·컷씬 | 7 나머지, 8 | **Ring 0 히어로 지점 3곳 우선**(A 진입부, E 광장, F 2F 창) / 모듈러 키트로 나머지 / Ring 1·2 원경 보강 / Emissive 야간 라이팅 / 시작·종료 시퀀스 / 미션 완료 창 / UI 톤 통일 | 처음부터 끝까지 연출이 연결된 빌드. 스크린샷 3장이 나오는 수준 |
 | **10/12 ~ 10/15** | 측정·패키징·문서 | 9 | 아트 적용 후 Before 재측정 / HLOD·ISM·LOD·Cull Distance / 원경 Collision 제거 / After 측정 / 패키징 테스트 / README 표 채우기, `docs/perf` 갱신 | 플레이 가능한 최종 빌드 + 최적화 Before/After + 문서 |
 
