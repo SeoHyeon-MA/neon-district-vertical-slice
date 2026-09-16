@@ -2,13 +2,11 @@
 
 
 #include "NeonDistrict/NeonDistrictMission.h"
-#include "NeonDistrict/NeonDistrictCharacter.h"
+#include "NeonDistrict/MissionRegistry.h"
 #include "Engine/World.h"
-#include "Components/ArrowComponent.h"
 #include "Components/BoxComponent.h"
 #include "HAL/IConsoleManager.h"
 #include "EngineUtils.h"
-#include "NeonDistrictGameMode.h"
 
 
 // Sets default values
@@ -19,10 +17,6 @@ ANeonDistrictMission::ANeonDistrictMission()
 	
 	EntryTrigger = CreateDefaultSubobject<UBoxComponent>(TEXT("EntryTrigger"));
 	SetRootComponent(EntryTrigger);
-	
-	RestartPoint = CreateDefaultSubobject<UArrowComponent>(TEXT("RestartPoint"));
-	RestartPoint->SetupAttachment(EntryTrigger);
-	RestartPoint->SetRelativeLocation(FVector(-400.0f, 0.0f, 0.0f));
 	
 	EntryTrigger->SetBoxExtent(FVector(200.f, 200.f, 200.f));
 	
@@ -58,22 +52,19 @@ FText ANeonDistrictMission::GetObjectiveText() const
 	}
 }
 
-FText ANeonDistrictMission::GetRank() const
-{
-	if (DeathCount == 0) return FText::FromString(TEXT("S"));
-	if (DeathCount == 1) return FText::FromString(TEXT("A"));
-	if (DeathCount == 2) return FText::FromString(TEXT("B"));
-	return FText::FromString(TEXT("C"));
-}
-
 void ANeonDistrictMission::CompleteMission()
 {
 	if (State != EMissionState::InProgress) { return; }
 	State = EMissionState::Completed;
 	
-	UE_LOG(LogTemp, Warning, TEXT("[Mission] 완료 - 사망 %d회, 랭크 %s"), DeathCount, *GetRank().ToString());
+	UE_LOG(LogTemp, Warning, TEXT("[Mission] 완료"));
 	
 	NotifyStateChanged();
+	
+	if (UMissionRegistry* Registry = GetWorld()->GetSubsystem<UMissionRegistry>())
+	{
+		Registry->Unregister(this);
+	}
 }
 
 void ANeonDistrictMission::OnEntryOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
@@ -97,53 +88,21 @@ void ANeonDistrictMission::OnEntryOverlap(UPrimitiveComponent* OverlappedCompone
 void ANeonDistrictMission::StartMission(APawn* Player)
 {
 	State = EMissionState::InProgress;
-	DeathCount = 0;
-	
-	if (ANeonDistrictGameMode* GameMode = GetWorld()->GetAuthGameMode<ANeonDistrictGameMode>())
-	{
-		GameMode->SetCheckpoint(RestartPoint->GetComponentTransform());
 		
-		// 앞으로 새 Pawn이 생길 떄마다 다시 구독한다
-		GameMode->OnPlayerPawnReady.AddUObject(this, &ANeonDistrictMission::BindToPlayer);
-	}
-	
-	BindToPlayer(Player);
-	SetupSegment();
-	
 	UE_LOG(LogTemp, Warning, TEXT("[Mission] 시작"));
-	NotifyStateChanged();
-}
-
-void ANeonDistrictMission::BindToPlayer(APawn* Player)
-{
-	if (ANeonDistrictCharacter* Character = Cast<ANeonDistrictCharacter>(Player))
+	
+	if(UMissionRegistry* Registry = GetWorld()->GetSubsystem<UMissionRegistry>())
 	{
-		Character->OnDied.AddUObject(this, &ANeonDistrictMission::HandlePlayerDied);
+	Registry->Unregister(this);
 	}
-}
-
-void ANeonDistrictMission::HandlePlayerDied(ANeonDistrictCharacter* Character)
-{
-	if (State != EMissionState::InProgress) return;
 	
-	++DeathCount;
-	UE_LOG(LogTemp,Warning, TEXT("[Mission] 사망 %d회 - 구간 재시작"), DeathCount);
-	
-	SetupSegment();
 	NotifyStateChanged();
-}
-
-void ANeonDistrictMission::SetupSegment()
-{
-	//적 정리, 생성
-	UE_LOG(LogTemp, Warning, TEXT("[Mission] 구간 세팅"));
 }
 
 void ANeonDistrictMission::NotifyStateChanged()
 {
 	OnStateChanged.Broadcast(this);
 }
-
 
 //############################디버그 설정##############
 #if !UE_BUILD_SHIPPING

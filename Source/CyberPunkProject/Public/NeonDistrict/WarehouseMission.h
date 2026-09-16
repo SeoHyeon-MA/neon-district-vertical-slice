@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "NeonDistrictMainMission.h"
 #include "Materials/MaterialExpressionOperator.h"
 #include "NeonDistrict/NeonDistrictMission.h"
 #include "WarehouseMission.generated.h"
@@ -21,7 +22,7 @@ enum class EWarehouseStep : uint8
  * 적을 처리하고 창고 키를 얻어 아이템을 회수한 뒤 Fixer에게 돌아오는 미션 
  */
 UCLASS()
-class CYBERPUNKPROJECT_API AWarehouseMission : public ANeonDistrictMission
+class CYBERPUNKPROJECT_API AWarehouseMission : public ANeonDistrictMainMission
 {
 	GENERATED_BODY()
 	

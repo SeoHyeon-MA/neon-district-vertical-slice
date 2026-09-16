@@ -4,12 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "NeonDistrict/MissionTypes.h"
 #include "NeonDistrictMission.generated.h"
 
 class ANeonDistrictMission;
 class UBoxComponent;
-class UArrowComponent;
-class ANeonDistrictCharacter;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMissionStateChanged, ANeonDistrictMission*);
 
@@ -31,17 +30,14 @@ class CYBERPUNKPROJECT_API ANeonDistrictMission : public AActor
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	UBoxComponent* EntryTrigger;
 	
-	/* 리스폰 위치. (트리거 바깥) */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
-	UArrowComponent* RestartPoint;
 	
 protected:
+	// 메인/사이드. 클래스에서 지정
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Neon District")
+	EMissionCategory Category = EMissionCategory::Main;
+	
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Neon District")
 	EMissionState State = EMissionState::NotAccepted;
-	
-	//진행 중 죽은 횟수, 랭크 계산에 사용
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Neon District")
-	int32 DeathCount = 0;
 	
 	
 public:	
@@ -49,8 +45,8 @@ public:
 	ANeonDistrictMission();
 	
 	// 공개 API
+	EMissionCategory GetCategory() const { return Category; }
 	EMissionState GetState() const { return State; }
-	int32 GetDeathCount() const { return DeathCount; }
 	
 	// NPC 대화가 끝나면 호출
 	void AcceptMission();
@@ -64,9 +60,6 @@ public:
 	// 미션 진행 중인가
 	bool IsInProgress() const { return State == EMissionState::InProgress; }
 	
-	// 사망 횟수로 계산한 랭크 - S:0 / A:1 / B:2 / C:3이상
-	FText GetRank() const;
-	
 	// 미션 완료 - 자식이 조건을 판단해 부른다
 	void CompleteMission();
 	
@@ -76,16 +69,7 @@ protected:
 	void OnEntryOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	
 	/* 미션 구간 시작 */
-	void StartMission(APawn* Player);
-	
-	/** 새 폰이 생길 때마다 죽음 이벤트를 구독한다 */
-	void BindToPlayer(APawn* Player);
-
-	/** 플레이어 죽음 처리 */
-	void HandlePlayerDied(ANeonDistrictCharacter* Character);
-
-	/** 구간을 처음 상태로 세팅한다. 시작할 때와 죽은 뒤에 같이 쓴다 */
-	virtual void SetupSegment();
+	virtual void StartMission(APawn* Player);
 	
 	// 상태가 바뀌었음을 알린다. 자식이 세부 단계를 바꾼 뒤 부름
 	void NotifyStateChanged();
