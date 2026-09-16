@@ -1,0 +1,95 @@
+name: Generate daily development log
+
+on:
+  schedule:
+    - cron: "5 15 * * *"
+  workflow_dispatch:
+    inputs:
+      target-date:
+        description: "개발일지를 생성할 날짜 (YYYY-MM-DD, 비워두면 어제 날짜)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  generate-log:
+    runs-on: ubuntu-latest
+    env:
+      target_date_input: ${{ inputs.target-date }}
+      timezone: Asia/Seoul
+      ai_api_url: ${{ vars.AI_API_URL }}
+      ai_model: ${{ vars.AI_MODEL }}
+      ai_api_key: ${{ secrets.AI_API_KEY }}
+      notion_database_url: ${{ vars.NOTION_REPORT_DATABASE_URL }}
+      notion_token: ${{ secrets.NOTION_TOKEN }}
+      authors_input: ${{ vars.AUTHORS }}
+      max_content_bytes: "100000"
+      prompt: >-
+        Based only on the provided commit history, write a Korean daily development log of approximately 500 Korean characters. Use only the actual development work and do not speculate. Follow this format:
+        ### Summary
+        Summarize the overall work in 2–3 sentences.
+
+        ### Key Tasks
+        - Key task 1
+        - Key task 2
+        Do not include commit evaluations, Git usage instructions, greetings, next tasks, or future plans. Output only the Markdown body without any explanation.
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate development log from commits
+        shell: bash
+        run: |
+          set -euo pipefail
+          report_date="${target_date_input:-$(TZ="$timezone" date -d yesterday +%F)}"
+          [[ "$report_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { echo "target-date must be YYYY-MM-DD" >&2; exit 1; }
+          [[ -n "$authors_input" ]] || { echo 'AUTHORS is required.' >&2; exit 1; }
+          mkdir -p .generated-content
+          commit_file=.generated-content/commits.txt
+          : > "$commit_file"
+          IFS=',' read -ra authors <<< "$authors_input"
+          for author in "${authors[@]}"; do
+            author="$(sed 's/^ *//; s/ *$//' <<< "$author")"
+            [[ -n "$author" ]] || { echo 'AUTHORS must contain non-empty author names separated by commas.' >&2; exit 1; }
+            git log main --since="$report_date 00:00:00 $timezone" --until="$report_date 23:59:59 $timezone" --author="$author" --pretty=format:'%h%n%s%n%b%n---' >> "$commit_file" || true
+          done
+          head -c "$max_content_bytes" "$commit_file" > "$commit_file.trimmed"
+          mv "$commit_file.trimmed" "$commit_file"
+          if [[ ! -s "$commit_file" ]]; then
+            echo "No commits found for $report_date; skipping publication."
+            exit 0
+          fi
+          [[ -n "$ai_api_url" && -n "$ai_model" && -n "$ai_api_key" ]] || { echo 'ai_api_url, ai_model, and ai_api_key are required.' >&2; exit 1; }
+          endpoint="${ai_api_url%/}"
+          [[ "$endpoint" == */chat/completions ]] || endpoint="$endpoint/chat/completions"
+          request=$(jq -n --arg model "$ai_model" --arg prompt "$prompt" --rawfile commits "$commit_file" '{model:$model,messages:[{role:"user",content:($prompt + "\n\n커밋 내역:\n" + $commits)}],temperature:0.2}')
+          response=$(curl --fail-with-body --silent --show-error --retry 2 -H 'Content-Type: application/json' -H "Authorization: Bearer $ai_api_key" --data "$request" "$endpoint")
+          content=$(jq -r '.choices[0].message.content // empty' <<< "$response")
+          [[ -n "$content" ]] || { echo 'AI response did not contain choices[0].message.content.' >&2; exit 1; }
+          file_name="development-log-$report_date.md"
+          printf '%s\n' "$content" > ".generated-content/$file_name"
+
+      - name: Publish daily report to Notion API
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "$notion_database_url" && -n "$notion_token" ]] || { echo 'notion_database_url and notion_token are required.' >&2; exit 1; }
+          normalized_url=$(tr -d '-' <<< "$notion_database_url")
+          [[ "$normalized_url" =~ ([0-9a-fA-F]{32}) ]] || { echo 'Could not find a Notion database ID in notion_database_url.' >&2; exit 1; }
+          database_id="${BASH_REMATCH[1]}"
+          database=$(curl --fail-with-body --silent --show-error "https://api.notion.com/v1/databases/$database_id" -H "Authorization: Bearer $notion_token" -H 'Notion-Version: 2025-09-03')
+          data_source_count=$(jq '.data_sources | length' <<< "$database")
+          [[ "$data_source_count" == 1 ]] || { echo "The database has $data_source_count data sources. A URL cannot identify which one to use." >&2; exit 1; }
+          data_source_id=$(jq -r '.data_sources[0].id' <<< "$database")
+          content_file=$(find .generated-content -maxdepth 1 -name 'development-log-*.md' -print -quit)
+          [[ -n "$content_file" ]] || { echo 'No generated log to publish.'; exit 0; }
+          report_date=$(grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' <<< "$content_file" | head -n 1)
+          [[ -n "$report_date" ]] || { echo 'Could not determine report date.' >&2; exit 1; }
+          title=$(date -d "$report_date" +%m/%d)
+          children=$(jq -R -s 'split("\n") | map(select(length > 0) | if startswith("### ") then {object:"block",type:"heading_3",heading_3:{rich_text:[{type:"text",text:{content:.[4:]}}]}} elif startswith("- ") then {object:"block",type:"bulleted_list_item",bulleted_list_item:{rich_text:[{type:"text",text:{content:.[2:]}}]}} else {object:"block",type:"paragraph",paragraph:{rich_text:[{type:"text",text:{content:.}}]}} end)' "$content_file")
+          payload=$(jq -n --arg id "$data_source_id" --arg title "$title" --arg date "$report_date" --argjson children "$children" '{parent:{type:"data_source_id",data_source_id:$id},properties:{"할 일":{title:[{type:"text",text:{content:$title}}]},"우선순위":{select:{name:"일일보고"}},"날짜":{date:{start:$date}}},children:$children}')
+          curl --fail-with-body --silent --show-error -X POST https://api.notion.com/v1/pages -H "Authorization: Bearer $notion_token" -H 'Notion-Version: 2025-09-03' -H 'Content-Type: application/json' --data "$payload"
