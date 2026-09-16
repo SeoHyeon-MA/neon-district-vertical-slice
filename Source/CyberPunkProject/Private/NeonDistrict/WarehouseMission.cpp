@@ -2,6 +2,9 @@
 
 
 #include "NeonDistrict/WarehouseMission.h"
+#include "HAL/IConsoleManager.h"
+#include "EngineUtils.h"
+#include "Engine/World.h"
 
 void AWarehouseMission::SetupSegment()
 {
@@ -20,7 +23,10 @@ void AWarehouseMission::AdvanceTo(EWarehouseStep NewStep)
 	if (!IsInProgress() || Step == NewStep) return;
 	Step = NewStep;
 	
-	UE_LOG(LogTemp, Warning, TEXT("[Mission] 단계 -> %s"), *GetObjectiveText().ToString());
+	UE_LOG(LogTemp, Warning, TEXT("[Mission] 단계 -> %d = %s / %s"), 
+		static_cast<int32>(Step),
+		*UEnum::GetValueAsString(Step),
+		*GetObjectiveText().ToString());
 	
 	NotifyStateChanged();
 }
@@ -44,3 +50,60 @@ FText AWarehouseMission::GetObjectiveText() const
 	}
 }
 
+//####################################디버그 설정################################
+#if !UE_BUILD_SHIPPING
+
+//배치된 창고 미션의 세부 단계를 강제로 바꾼다
+static void NDSetMissionStep(const TArray<FString>& Args, UWorld* World)
+{
+	if (!World || Args.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("사용법: ND.SetMissionStep <0=Fighting 1=KeyDropped 2=ItemAcquired 3=Returning"));
+		return;
+	}
+	
+	const int32 Value = FCString::Atoi(*Args[0]);
+	
+	if (Value < 0 || Value > 3)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("0~3 사이 값을 넣으세요"));
+		return;
+	}
+	
+	for (TActorIterator<AWarehouseMission> It(World); It; ++It)
+	{
+		It->AdvanceTo(static_cast<EWarehouseStep>(Value));
+	}
+}
+
+static void NDMissionStatus(UWorld* World)
+{
+	if (!World)
+	{
+		return;
+	}
+	
+	for (TActorIterator<AWarehouseMission> It(World); It; ++It)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Mission] %s | State = %s | Step = %d %s | Deaths = %d | 목표: %s"),
+			*It->GetName(),
+			*UEnum::GetValueAsString(It->GetState()),
+			static_cast<int32>(It->GetStep()),
+			*UEnum::GetValueAsString(It->GetState()),
+			It->GetDeathCount(),
+			*It->GetObjectiveText().ToString()
+			);
+	}
+}
+
+static FAutoConsoleCommandWithWorldAndArgs GNDSetMissionStepCmd(
+TEXT("ND.SetMissionStep"),
+TEXT("창고 미션의 세부 단계를 강제로 바꾼다 (디버그용). 0=Fighting 1=KeyDropped 2=ItemAcquired 3=Returning"),
+FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&NDSetMissionStep));
+
+static FAutoConsoleCommandWithWorld GNDMissionStatusCmd(
+	TEXT("ND.MissionStatus"),
+	TEXT("창고 미션의 현재 상태·단계·사망 횟수를 찍는다 (디버그용)"),
+	FConsoleCommandWithWorldDelegate::CreateStatic(&NDMissionStatus));
+
+#endif

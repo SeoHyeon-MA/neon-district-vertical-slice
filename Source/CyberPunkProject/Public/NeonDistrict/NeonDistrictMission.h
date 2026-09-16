@@ -47,7 +47,11 @@ protected:
 public:	
 	// Sets default values for this actor's properties
 	ANeonDistrictMission();
-
+	
+	// 공개 API
+	EMissionState GetState() const { return State; }
+	int32 GetDeathCount() const { return DeathCount; }
+	
 	// NPC 대화가 끝나면 호출
 	void AcceptMission();
 	
