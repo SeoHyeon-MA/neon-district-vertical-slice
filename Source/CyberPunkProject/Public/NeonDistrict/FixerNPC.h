@@ -1,0 +1,42 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/Actor.h"
+#include "NeonDistrict/Interactable.h"
+#include "FixerNPC.generated.h"
+
+class ANeonDistrictMission;
+class UCapsuleComponent;
+/*
+ * 미션을 주는 NPC. E키로 말을 걸면 연결된 미션을 수락시킨다.
+ */
+UCLASS()
+class CYBERPUNKPROJECT_API AFixerNPC : public AActor, public IInteractable
+{
+	GENERATED_BODY()
+	
+	//상호작용 트레이스가 맞는 몸통. Visibility 채널만 막는다
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta=(AllowPrivateAccess="true"))
+	UCapsuleComponent* Capsule;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category= "Components", meta=(AllowPrivateAccess="true"))
+	USkeletalMeshComponent* Mesh;
+
+protected:
+	// 이 NPC가 주는 미션, 레벨에서 지정
+	UPROPERTY(EditInstanceOnly, Category="Neon District")
+	TObjectPtr<ANeonDistrictMission> Mission;
+	
+public:	
+	// Sets default values for this actor's properties
+	AFixerNPC();
+
+	//~ Begin IInteractable Interface
+	virtual FText GetInteractionPrompt() const override;
+	virtual bool CanInteract(APawn* InteractingPawn) const override;
+	virtual void Interact(APawn* InteractingPawn) override;
+	//~ End IInteractable Interface
+
+};
