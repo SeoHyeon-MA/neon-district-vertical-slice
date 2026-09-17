@@ -186,11 +186,35 @@ ANeonDistrictMission (abstract, 공통 뼈대)
 
 부수 효과: 수락 전에는 레이어를 `Unloaded`로 두면 "미션 미수락 시 적 없음"이 코드 없이 충족된다. 적은 스포너 대신 에디터 직접 배치.
 
-유의: 활성화는 비동기다(완료 델리게이트 구독 필요할 수 있음). 미션 액터·트리거·부활 지점은 절대 이 레이어에 넣지 않는다.
+미션 액터·트리거·부활 지점은 절대 이 레이어에 넣지 않는다.
 
-- [ ] `DL_Mission` 런타임 데이터 레이어 생성, 초기 상태 `Unloaded`
-- [ ] `AWarehouseMission`에 레이어 참조 프로퍼티, `SetupSegment()`에서 `UDataLayerManager`로 재활성화
-- [ ] 로드 완료 시점 확인 — 필요하면 완료 델리게이트 구독
+**구현 결과 (9/17) — "내렸다 올리기"는 두 단계 대기가 필요했다.**
+
+처음 예상한 위험은 "활성화가 비동기라 완료를 기다려야 한다"였는데, 실제로 걸린 건 다른 두 가지였다.
+
+1. **같은 프레임에 내렸다 올리면 아무 일도 안 일어난다.** `SetDataLayerRuntimeState(Unloaded)`는 셀 스트리밍 레벨에
+   플래그만 켜고 실제 제거는 다음 스트리밍 업데이트가 한다. 그 전에 `Activated`가 오면 플래그만 도로 뒤집힌다.
+2. **내려간 레벨이 GC 전이면 엔진이 그 레벨을 그대로 재사용한다.** `WorldPartitionLevelStreamingDynamic.cpp`의
+   "Reuse existing Level" — 셀 경계를 왔다갔다할 때 디스크를 다시 읽지 않으려는 최적화다. 일반 레벨 스트리밍은 내려간 뒤
+   GC를 강제하지만(`GLevelStreamingForceGCAfterLevelStreamedOut`), World Partition은 셀이 많아 히치를 피하려고 이걸 끈다
+   (`WorldPartitionSubsystem.cpp`). 그래서 기본 GC 주기(약 60초) 안에 올리면 밀린 큐브가 밀린 자리 그대로 돌아왔다.
+   콘솔 명령으로 됐던 건 두 명령 사이에 우연히 GC가 돌았던 것.
+
+해결: `ANeonDistrictMainMission::SetupSegment()`가 내리기 전에 레이어 셀의 레벨 패키지 이름을 기억해 두고, 타이머(0.1초)로
+① 셀이 월드에서 빠졌는지 → ② 그 패키지가 메모리에서 사라졌는지(`StaticFindObjectFast` + `Garbage` 제외) 순서로 확인한다.
+②가 아직이면 `GEngine->ForceGarbageCollection(true)`로 다음 틱 GC를 요청하고 다시 기다린다. 둘 다 통과하면 `Activated`.
+World Partition이 끈 GC를 이 레이어에 한해 우리가 대신 거는 셈이다. 전체 리셋에 약 0.2초, 부활 대기 2초 안에 끝난다.
+전역 콘솔 변수 `LevelStreaming.ShouldReuseUnloadedButStillAroundLevels 0`으로 재사용을 끄는 방법도 있지만, GC 전까지
+셀이 안 올라와 최대 60초 빈 구간이 생기고 모든 셀의 스트리밍 성능에 영향을 줘서 택하지 않았다.
+
+검증은 `-NDSegmentTest` 인자로 혼자 도는 임시 테스트(레이어 올리기 → 큐브 밀기 → `SetupSegment()` → 0.05초마다 상태 덤프)를
+`-game -unattended`로 돌려 로그로 했다. 재활성화 전후 액터 이름이 같다는 것이 재사용의 증거였다. 확인 후 테스트 코드는 제거.
+
+레이어 리셋은 창고만의 일이 아니라 메인 미션 공통이라 `AWarehouseMission`이 아닌 `ANeonDistrictMainMission`에 두었다.
+
+- [x] `DL_Mission` 런타임 데이터 레이어 생성, 초기 상태 `Unloaded`
+- [x] `ANeonDistrictMainMission`에 `SegmentLayer` 프로퍼티, `SetupSegment()`에서 `UDataLayerManager`로 재활성화
+- [x] 로드 완료 시점 확인 — 완료 델리게이트가 아니라 "월드에서 빠짐 → GC로 사라짐" 두 단계 폴링
 
 ---
 
