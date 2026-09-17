@@ -46,7 +46,7 @@ void ANeonDistrictGameMode::InitGame(const FString& MapName, const FString& Opti
 
 	// 입력 매핑과 카메라 설정이 들어 있는 컨트롤러
 	if (UClass* PCClass = LoadClass<APlayerController>(nullptr,
-		TEXT("/Game/Variant_Shooter/Blueprints/BP_ShooterPlayerController.BP_ShooterPlayerController_C")))
+		TEXT("/Game/NeonDistrict/Blueprints/BP_NeonDistrictPlayerController.BP_NeonDistrictPlayerController_C")))
 	{
 		PlayerControllerClass = PCClass;
 	}

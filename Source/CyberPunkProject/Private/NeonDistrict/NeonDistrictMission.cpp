@@ -36,6 +36,13 @@ void ANeonDistrictMission::AcceptMission()
 		State = EMissionState::Accepted;
 		
 		UE_LOG(LogTemp, Log, TEXT("[Mission] Accepted!"));
+		
+		
+		if(UMissionRegistry* Registry = GetWorld()->GetSubsystem<UMissionRegistry>())
+		{
+			Registry->Register(this);
+		}
+	
 		NotifyStateChanged();
 	}
 }
@@ -90,11 +97,6 @@ void ANeonDistrictMission::StartMission(APawn* Player)
 	State = EMissionState::InProgress;
 		
 	UE_LOG(LogTemp, Warning, TEXT("[Mission] 시작"));
-	
-	if(UMissionRegistry* Registry = GetWorld()->GetSubsystem<UMissionRegistry>())
-	{
-	Registry->Unregister(this);
-	}
 	
 	NotifyStateChanged();
 }
