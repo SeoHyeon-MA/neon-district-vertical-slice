@@ -2,9 +2,11 @@
 
 
 #include "NeonDistrict/FixerNPC.h"
+
 #include "NeonDistrict/NeonDistrictMission.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Engine/DataTable.h"
 
 // Sets default values
 AFixerNPC::AFixerNPC()
@@ -40,6 +42,37 @@ bool AFixerNPC::CanInteract(APawn* InteractingPawn) const
 
 void AFixerNPC::Interact(APawn* InteractingPawn)
 {
-	//지금은 바로 수락. 대화 UI가 들어오면 대화가 끝난 뒤로 옮긴다
-	Mission->AcceptMission();
+	if (!DialogueTable) return;
+	
+	// 임시: 대화 위젯이 들어오기 전까지 로그로 줄을 흘린다
+	FName Row = PickStartRow();
+	while (!Row.IsNone())
+	{
+		const FDialogueLine* Line = DialogueTable->FindRow<FDialogueLine>(Row, TEXT("FixerNPC"));
+		if (!Line) break;
+		
+		UE_LOG(LogTemp, Warning, TEXT("[Dialogue] %s: %s"), *Line->Speaker.ToString(), *Line->Text.ToString());
+		ApplyEffect(Line->Effect);
+		Row = Line->NextRow;
+	}
+}
+
+FName AFixerNPC::PickStartRow() const
+{
+	switch (Mission->GetState())
+	{
+	case EMissionState::NotAccepted: return IntroRow;
+	case EMissionState::Accepted: return InProgressRow;
+	default: return CompletedRow;
+	}
+}
+
+void AFixerNPC::ApplyEffect(EDialogueEffect Effect)
+{
+	switch (Effect)
+	{
+	case EDialogueEffect::AcceptMission: Mission->AcceptMission(); break;
+	case EDialogueEffect::CompleteMission: Mission->CompleteMission(); break;
+	default: break;
+	}
 }

@@ -5,10 +5,12 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "NeonDistrict/Interactable.h"
+#include "NeonDistrict/MissionDialogueTypes.h"
 #include "FixerNPC.generated.h"
 
 class ANeonDistrictMission;
 class UCapsuleComponent;
+class UDataTable;
 /*
  * 미션을 주는 NPC. E키로 말을 걸면 연결된 미션을 수락시킨다.
  */
@@ -29,6 +31,20 @@ protected:
 	UPROPERTY(EditInstanceOnly, Category="Neon District")
 	TObjectPtr<ANeonDistrictMission> Mission;
 	
+	// 대사 테이블. 행 구조는 FDialogueLine
+	UPROPERTY(EditAnywhere, Category = "Neon District|Dialogue", meta = (RequiredAssetDataTags = "RowStructure=/Script/CyberPunkProject.DialogueLine"))
+	TObjectPtr<UDataTable> DialogueTable;
+	
+	// 미션 상태별 시작 행
+	UPROPERTY(EditAnywhere, Category = "Neon District|Dialogue")
+	FName IntroRow = TEXT("Intro_1");
+	
+	UPROPERTY(EditAnywhere, Category = "Neon District|Dialogue")
+	FName InProgressRow = TEXT("InProgress_1");
+	
+	UPROPERTY(EditAnywhere, Category = "Neon District|Dialogue")
+	FName CompletedRow = TEXT("Completed_1");
+	
 public:	
 	// Sets default values for this actor's properties
 	AFixerNPC();
@@ -39,4 +55,10 @@ public:
 	virtual void Interact(APawn* InteractingPawn) override;
 	//~ End IInteractable Interface
 
+private:
+	// 미션 상태로 시작 행을 고른다
+	FName PickStartRow() const;
+	
+	// 줄의 Effect를 미션에 적용
+	void ApplyEffect(EDialogueEffect Effect);
 };
