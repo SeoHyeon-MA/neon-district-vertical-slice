@@ -675,3 +675,106 @@ protected:
 ```
 
 include 경로는 `NeonDistrict/파일.h`처럼 **폴더를 포함한 형태**로 통일한다. `Public/`이 인클루드 경로라 짧게 써도 빌드는 되지만, 어느 모듈 것인지 한눈에 보이게 한다.
+
+---
+
+## 10. 미션 등록부와 목표 HUD — 소비자가 미션을 찾는 통로
+
+로드맵 3-A 5~6단계. HUD·문·NPC가 "지금 미션"을 찾고, 상태가 바뀔 때 목표 문구를 띄운다.
+관련 커밋: `7c50bba`, `1576ee1`.
+
+### 10-1. 전체 흐름
+
+```text
+ANeonDistrictMission ──Register/Unregister──▶ UMissionRegistry (UWorldSubsystem)
+        │                                          │ OnActiveMissionsChanged(미션, 등록여부)
+        │ OnStateChanged(미션)                       ▼
+        └────────────────────────────────▶ UMissionObjectiveWidget
+                                                   │ GetObjectiveText()
+                                                   ▼
+                                           WBP_MissionObjective (Update Objective → SetText)
+                                                   ▲
+                                   ANeonDistrictPlayerController::BeginPlay 에서 생성
+```
+
+두 겹 구독이다. 등록부에서 "어느 미션을 볼지"를 받고, 그 미션에서 "문구가 바뀌었는지"를 받는다.
+게임모드는 여전히 미션을 모르고, 위젯은 미션의 구체 클래스를 모른다 — `GetObjectiveText()`만 부른다.
+
+### 10-2. 조각별 역할
+
+| 조각 | 역할 |
+|---|---|
+| `EMissionCategory` (`MissionTypes.h`) | `Main` / `Side`. 공용 어휘라 별도 헤더 |
+| `UMissionRegistry` | 받은 미션(수락~완료)의 목록. `Register` / `Unregister`, 분류별 질의 `GetActiveMission(Category)` / `GetActiveMissions(Category, Out)`. 상태는 들지 않는다 |
+| `ANeonDistrictMission` | 공통 — 상태, 분류, 트리거, 수락/시작/완료, 등록부 등록·해제, `OnStateChanged` |
+| `ANeonDistrictMainMission` | 메인만 — `RestartPoint`, 체크포인트, 사망 카운트, 구간 리셋, 랭크. `Category`를 생성자에서 `Main`으로 고정 |
+| `UMissionObjectiveWidget` | `TrackedCategory` 하나의 미션을 본다 (`UCLASS(abstract)`) |
+| `ANeonDistrictPlayerController` | `MissionObjectiveClass`를 `BeginPlay`에서 생성. 미션도 등록부도 모른다 |
+| `WBP_MissionObjective` | 텍스트 블록 배치, `Update Objective` 이벤트에서 `SetText` |
+| `BP_NeonDistrictPlayerController` | 템플릿 컨트롤러 복제 → Reparent. IMC·탄약 UI 설정을 이어받는다 |
+
+### 10-3. 위젯의 동작
+
+- `NativeConstruct` — 접힌 채 시작 → `GetWorld()->GetSubsystem<UMissionRegistry>()`로 등록부를 찾아 구독 → 이미 등록된 미션이 있으면 `TrackMission`으로 즉시 반영 (방송은 구독 이전 일을 알려주지 않는다)
+- `HandleActiveMissionsChanged(미션, 등록여부)` — 자기 분류가 아니면 무시. 등록이면 `TrackMission(미션)`, 보고 있던 미션의 해제면 `TrackMission(nullptr)`
+- `TrackMission` — 이전 미션 구독 해제 → 새 미션 `OnStateChanged` 구독 → `Refresh`
+- `Refresh` — `GetObjectiveText()` → `BP_UpdateObjective` → `HitTestInvisible`
+- `NativeDestruct` — 등록부·미션 구독 모두 해제
+
+### 10-4. 설계 판단
+
+**주입과 조회를 나누는 기준 — 선택지가 있으면 주입, 유일하면 조회.**
+프롬프트 위젯은 `BindToComponent(컴포넌트)`로 받는다. 컴포넌트는 폰마다 하나라 "어느 폰 것이냐"를 만드는 쪽이 정해야 한다.
+목표 위젯은 `GetSubsystem`으로 스스로 찾는다. 등록부는 월드에 하나라 고를 게 없고, 주입하면 만드는 쪽에 의존만 하나 는다.
+전역으로 하나인 것을 주입하는 건 확장성이 아니라 형식이다.
+
+**볼 대상은 인자가 아니라 속성.** `TrackedCategory`(EditDefaultsOnly)를 WBP 자식이 정한다.
+같은 C++ 클래스로 `WBP_MainObjective`(Main)와 `WBP_SideObjectives`(Side)를 만들 수 있고, 만드는 쪽은 둘 다 `CreateWidget`만 한다.
+
+**등록부는 하나, 분류는 속성.** 메인용·사이드용 등록부를 따로 두지 않는다.
+메인과 사이드는 같은 종류의 물건이고 다른 건 속성 하나다. 세 번째 분류가 생겨도 enum 값 하나로 끝난다.
+"메인은 한 번에 하나"는 등록부가 아니라 미션 쪽 규칙이다 — 등록부에 규칙을 넣기 시작하면 분류마다 예외가 쌓인다.
+
+**메인 미션만의 행동은 클래스로 내린다.** 체크포인트·사망 카운트·구간 리셋은 `ANeonDistrictMainMission`에 있다.
+사이드 미션은 `ANeonDistrictMission`을 바로 상속하고, 메인의 체크포인트를 덮어쓸 수 없다는 게 코드로 드러난다.
+`Category`는 생성자가 박는다 — enum(등록부 질의용)과 계층(행동 분리용)이 어긋나지 않게.
+`Super::StartMission`은 체크포인트·구독·구간 세팅을 마친 뒤 마지막에 부른다. HUD가 방송을 받을 때 미션이 완성 상태여야 한다.
+
+**위젯 소유자는 PlayerController.** 캐릭터는 죽을 때마다 새로 생겨 위젯이 겹친다. 컨트롤러는 살아남으니 한 번만 생성한다.
+템플릿이 탄약 카운터를 컨트롤러에서 만드는 것과 같은 자리다.
+
+**등록 시점은 `AcceptMission`.** 처음엔 `StartMission`에 뒀는데, 그러면 Accepted 상태의 "건물에 진입하세요"가 영영 안 보인다.
+등록부의 의미를 "진행 중"이 아니라 "받은 미션"으로 잡았다 — 플레이어에게는 수락한 순간부터 목표가 있다.
+
+**미션이 빠져도 마지막 문구를 남긴다.** `CompleteMission`에서 완료 방송 → `Unregister`가 한 호출 안에서 연달아 온다.
+빠질 때 접으면 "미션 완료"가 0프레임 만에 사라진다. 구독만 끊고 문구는 다음 미션이 시작할 때까지 유지한다.
+같은 이유로 `NotifyStateChanged()`가 먼저, `Unregister`가 나중이다 — 구독이 끊기기 전에 완료 문구를 받아야 한다.
+
+### 10-5. 걸렸던 것
+
+- **`TWeakObjectPtr<ANeonDistrictMission*>`** — `*`가 하나 더 들어갔다. `T`는 클래스 자체이고 포인터는 안에서 만든다.
+- **IDE가 끼워 넣은 `#include "ObjectEditorUtils.h"`** — 에디터 전용 헤더라 패키징에서 깨진다. 7절의 `ShaderConductor`와 같은 종류.
+- **부모 `.cpp`에서 메인 함수를 옮기다 `NotifyStateChanged()` 정의까지 지웠다** — `LNK2019`. 선언은 남고 정의만 사라지면 컴파일은 통과하고 링크에서 잡힌다.
+- **Hot Reload 번호 충돌** — `UnrealEditor-CyberPunkProject maps to -0061 and -0062`. 링크가 중간에 실패하면서 `.pdb`만 남아 UBT가 현재 번호를 못 정했다.
+  에디터를 끄고 `Binaries/Win64/`의 번호 붙은 DLL·PDB와 `Intermediate/.../CyberPunkProject/`의 번호 붙은 파일을 지운 뒤 재빌드.
+  **새 클래스·새 `UPROPERTY`가 들어가는 빌드는 에디터를 끄고 한다.** 함수 본문만 바뀌면 Live Coding.
+- **게임모드 경로가 폴더는 옛것, 이름은 새것으로 섞였다** — `Failed to find object 'Class /Game/Variant_Shooter/Blueprints/BP_ShooterPlayerController.BP_NeonDistrictPlayerController_C'`. 컨트롤러가 안 바뀐 채 플레이됐다.
+- **등록 시점을 옮기면서 `Register`가 `Unregister`로 바뀌었다.** 어디서도 등록이 안 되니 위젯은 방송을 못 받고 접힌 채였다.
+  로그에 오류가 하나도 없어서, 콘솔 `obj list class=BP_NeonDistrictPlayerController_C` / `obj list class=WBP_MissionObjective_C`로
+  컨트롤러와 위젯이 존재하는지부터 갈랐다. 둘 다 2개로 나오는 건 하나가 블루프린트 에디터의 미리보기 객체라 정상이다.
+
+### 10-6. 이번에 쓴 API
+
+| | 뜻 |
+|---|---|
+| `UWorldSubsystem` | 월드마다 하나 자동 생성, 월드가 끝나면 같이 사라진다. `GetWorld()->GetSubsystem<T>()` |
+| `TArray<TWeakObjectPtr<T>>` | 액터 목록을 소유 없이 든다. 원시 포인터로 `Contains` / `Remove` 비교가 된다 |
+| `DECLARE_MULTICAST_DELEGATE_TwoParams` | 목록이 되면 "지금 하나가 뭐냐"가 아니라 "무엇이 들어오고 나갔냐"를 보낸다 |
+| `CreateWidget(PlayerController, …)` + `AddToPlayerScreen(0)` | 소유자가 컨트롤러. 그 플레이어 화면에 붙고 컨트롤러와 함께 정리된다 |
+| `EditDefaultsOnly` | 인스턴스가 아니라 클래스 기본값에서만 편집. WBP 자식이 정하는 설정에 맞다 |
+| `obj list class=<클래스>_C` | 콘솔에서 인스턴스 존재 확인. 로그에 오류가 없을 때 첫 번째로 갈라볼 것 |
+
+### 10-7. 검증 순서
+
+플레이 → 아무것도 없음 → `ND.AcceptMission` → "건물에 진입하세요" → 트리거 진입 → "적을 처리하세요"
+→ `ND.SetMissionStep 1` → "창고 키를 획득하세요" → `NDKill` → 부활 후 "적을 처리하세요"(구간 리셋). 위젯 하나만 갱신된다.
