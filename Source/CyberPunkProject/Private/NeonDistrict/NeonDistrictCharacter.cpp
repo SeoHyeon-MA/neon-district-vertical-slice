@@ -3,11 +3,12 @@
 
 #include "NeonDistrict/NeonDistrictCharacter.h"
 #include "NeonDistrict/InteractionComponent.h"
+#include "NeonDistrict/InteractionPromptWidget.h"
+#include "NeonDistrict/NeonDistrictPlayerController.h"
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/Controller.h"
 #include "Engine/DamageEvents.h"
 #include "EnhancedInputComponent.h"
-#include "NeonDistrict/InteractionPromptWidget.h"
 #include "Blueprint/UserWidget.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 
@@ -63,6 +64,16 @@ void ANeonDistrictCharacter::SetupPlayerInputComponent(UInputComponent* PlayerIn
 
 void ANeonDistrictCharacter::DoInteract()
 {
+	// 대화 중이면 E는 "다음 줄 실행"
+	if (ANeonDistrictPlayerController* PC = GetController<ANeonDistrictPlayerController>())
+	{
+		if (PC->IsInDialogue())
+		{
+			PC->AdvanceDialogue();
+			return;
+		}
+	}
+	
 	InteractionComponent->TryInteract();
 }
 

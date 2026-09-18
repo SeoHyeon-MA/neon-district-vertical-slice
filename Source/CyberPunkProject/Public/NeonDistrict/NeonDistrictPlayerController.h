@@ -7,6 +7,8 @@
 #include "NeonDistrictPlayerController.generated.h"
 
 class UMissionObjectiveWidget;
+class UDialogueWidget;
+class UDataTable;
 
 /**
  * Neon District 플레이어 컨트롤러. 폰이 바뀌어도 살아남는 HUD를 소유한다
@@ -24,8 +26,25 @@ protected:
 	UPROPERTY()
 	TObjectPtr<UMissionObjectiveWidget> MissionObjective;
 	
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|UI")
+	TSubclassOf<UDialogueWidget> DialogueClass;
+	
+	UPROPERTY()
+	TObjectPtr<UDialogueWidget> Dialogue;
+	
+public:
+	bool IsInDialogue() const;
+	
+	//대화를 열고 위젯을 돌려준다. 부른 쪽이 OnEffect를 묶는다
+	UDialogueWidget* StartDialogue(UDataTable* Table, FName StartRow);
+	
+	void AdvanceDialogue();
+	
 protected:
 	//~ Begin AActor Interface
 	virtual void BeginPlay() override;
 	//~ End AActor Interface
+	
+private:
+	void HandleDialogueFinished();
 }; 

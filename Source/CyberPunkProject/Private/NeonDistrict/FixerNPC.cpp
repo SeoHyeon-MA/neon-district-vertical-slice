@@ -3,6 +3,8 @@
 
 #include "NeonDistrict/FixerNPC.h"
 
+#include "DialogueWidget.h"
+#include "NeonDistrictPlayerController.h"
 #include "NeonDistrict/NeonDistrictMission.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -44,16 +46,13 @@ void AFixerNPC::Interact(APawn* InteractingPawn)
 {
 	if (!DialogueTable) return;
 	
-	// 임시: 대화 위젯이 들어오기 전까지 로그로 줄을 흘린다
-	FName Row = PickStartRow();
-	while (!Row.IsNone())
+	ANeonDistrictPlayerController* PC = InteractingPawn ? InteractingPawn->GetController<ANeonDistrictPlayerController>() :
+	nullptr;
+	if (!PC) return;
+	
+	if (UDialogueWidget* Dialogue = PC->StartDialogue(DialogueTable, PickStartRow()))
 	{
-		const FDialogueLine* Line = DialogueTable->FindRow<FDialogueLine>(Row, TEXT("FixerNPC"));
-		if (!Line) break;
-		
-		UE_LOG(LogTemp, Warning, TEXT("[Dialogue] %s: %s"), *Line->Speaker.ToString(), *Line->Text.ToString());
-		ApplyEffect(Line->Effect);
-		Row = Line->NextRow;
+		Dialogue->OnEffect.BindUObject(this, &AFixerNPC::ApplyEffect);
 	}
 }
 
