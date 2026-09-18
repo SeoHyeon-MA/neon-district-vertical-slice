@@ -45,6 +45,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Neon District|Dialogue")
 	FName CompletedRow = TEXT("Completed_1");
 	
+	UPROPERTY(EditAnywhere, Category = "Neon District|Dialogue")
+	FName ReturnRow = TEXT("Return_1");
+	
 public:	
 	// Sets default values for this actor's properties
 	AFixerNPC();

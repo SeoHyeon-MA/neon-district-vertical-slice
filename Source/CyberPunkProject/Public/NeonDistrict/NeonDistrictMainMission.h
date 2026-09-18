@@ -42,6 +42,7 @@ public:
 protected:
 	//~ Begin ANeonDistrictMission Interface
 	virtual void StartMission(APawn* Player) override;
+	virtual FText GetObjectiveText() const override;
 	//~ End ANeonDistrictMission Interface
 	
 	// 구간 세팅. 시작할 때와 죽을 때마다. 자식이 적 배치 등을 덮어쓴다

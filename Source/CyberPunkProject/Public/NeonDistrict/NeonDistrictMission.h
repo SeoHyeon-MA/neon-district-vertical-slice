@@ -60,6 +60,9 @@ public:
 	// 미션 진행 중인가
 	bool IsInProgress() const { return State == EMissionState::InProgress; }
 	
+	// 완료 조건을 채웠는가. 자식이 세부 단계로 답한다
+	virtual bool CanComplete() const { return false; }
+	
 	// 미션 완료 - 자식이 조건을 판단해 부른다
 	void CompleteMission();
 	

@@ -125,4 +125,13 @@ void ANeonDistrictMainMission::StartMission(APawn* Player)
 	Super::StartMission(Player);
 }
 
+FText ANeonDistrictMainMission::GetObjectiveText() const
+{
+	if (GetState() == EMissionState::Completed)
+	{
+		return FText::Format(NSLOCTEXT("Mission", "CompletedRank", "미션 완료 - 랭크 {0}"), GetRank());
+	}
+	return Super::GetObjectiveText();
+}
+
 

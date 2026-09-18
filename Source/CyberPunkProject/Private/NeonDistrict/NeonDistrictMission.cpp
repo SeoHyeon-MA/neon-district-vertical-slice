@@ -61,7 +61,7 @@ FText ANeonDistrictMission::GetObjectiveText() const
 
 void ANeonDistrictMission::CompleteMission()
 {
-	if (State != EMissionState::InProgress) { return; }
+	if (!CanComplete()) { return; }
 	State = EMissionState::Completed;
 	
 	UE_LOG(LogTemp, Warning, TEXT("[Mission] 완료"));

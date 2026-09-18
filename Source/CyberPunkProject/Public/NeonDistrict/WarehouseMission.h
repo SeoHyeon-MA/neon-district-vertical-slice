@@ -40,4 +40,6 @@ public:
 	
 	virtual FText GetObjectiveText() const override;
 	
+	virtual bool CanComplete() const override;
+	
 };

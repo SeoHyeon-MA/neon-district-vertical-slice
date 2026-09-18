@@ -50,6 +50,11 @@ FText AWarehouseMission::GetObjectiveText() const
 	}
 }
 
+bool AWarehouseMission::CanComplete() const
+{
+	return IsInProgress() && Step == EWarehouseStep::Returning;
+}
+
 //####################################디버그 설정################################
 #if !UE_BUILD_SHIPPING
 
