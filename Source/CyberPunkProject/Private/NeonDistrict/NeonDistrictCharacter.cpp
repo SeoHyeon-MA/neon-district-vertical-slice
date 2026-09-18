@@ -3,32 +3,12 @@
 
 #include "NeonDistrict/NeonDistrictCharacter.h"
 #include "NeonDistrict/InteractionComponent.h"
-#include "NeonDistrict/InteractionPromptWidget.h"
 #include "NeonDistrict/NeonDistrictPlayerController.h"
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/Controller.h"
 #include "Engine/DamageEvents.h"
 #include "EnhancedInputComponent.h"
-#include "Blueprint/UserWidget.h"
-#include "PhysicsEngine/PhysicsAsset.h"
 
-
-void ANeonDistrictCharacter::BeginPlay()
-{
-	Super::BeginPlay();
-	
-	//내 화면에만 띄운다
-	if (!IsLocallyControlled() || !InteractionPromptClass) {return;}
-	
-	InteractionPrompt = CreateWidget<UInteractionPromptWidget>(GetWorld(), InteractionPromptClass);
-	
-	if (InteractionPrompt)
-	{
-		InteractionPrompt->AddToViewport();
-		InteractionPrompt->BindToComponent(InteractionComponent);
-	}
-	
-}
 
 ANeonDistrictCharacter::ANeonDistrictCharacter()
 {

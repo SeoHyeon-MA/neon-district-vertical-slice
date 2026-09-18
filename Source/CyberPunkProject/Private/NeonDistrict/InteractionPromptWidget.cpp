@@ -8,9 +8,17 @@
 
 void UInteractionPromptWidget::BindToComponent(UInteractionComponent* Component)
 {
-	if (!Component) return;
+	if (BoundComponent.IsValid())
+	{
+		BoundComponent->OnTargetChanged.RemoveAll(this);
+	}
 	
 	BoundComponent = Component;
+	if (!Component)
+	{
+		SetVisibility(ESlateVisibility::Collapsed);
+		return;
+	}
 	Component->OnTargetChanged.AddUObject(this, &UInteractionPromptWidget::HandleTargetChanged);
 	
 	// 지금 이미 보고 있는 대상이 있을 수 있다

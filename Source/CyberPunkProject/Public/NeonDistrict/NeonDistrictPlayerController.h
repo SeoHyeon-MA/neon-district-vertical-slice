@@ -6,6 +6,7 @@
 #include "Variant_Shooter/ShooterPlayerController.h"
 #include "NeonDistrictPlayerController.generated.h"
 
+class UInteractionPromptWidget;
 class UMissionObjectiveWidget;
 class UDialogueWidget;
 class UDataTable;
@@ -27,6 +28,12 @@ protected:
 	TObjectPtr<UMissionObjectiveWidget> MissionObjective;
 	
 	UPROPERTY(EditDefaultsOnly, Category="Neon District|UI")
+	TSubclassOf<UInteractionPromptWidget> InteractionPromptClass;
+	
+	UPROPERTY()
+	TObjectPtr<UInteractionPromptWidget> InteractionPrompt;
+	
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|UI")
 	TSubclassOf<UDialogueWidget> DialogueClass;
 	
 	UPROPERTY()
@@ -44,6 +51,10 @@ protected:
 	//~ Begin AActor Interface
 	virtual void BeginPlay() override;
 	//~ End AActor Interface
+	
+	//~ Begin AController Interface
+	virtual void OnPossess(APawn* InPawn) override;
+	//~ End AController Interface
 	
 private:
 	void HandleDialogueFinished();

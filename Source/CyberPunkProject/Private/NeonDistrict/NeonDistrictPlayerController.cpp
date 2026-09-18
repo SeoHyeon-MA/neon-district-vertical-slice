@@ -4,13 +4,17 @@
 #include "NeonDistrict/NeonDistrictPlayerController.h"
 #include "NeonDistrict/MissionObjectiveWidget.h"
 #include "NeonDistrict/DialogueWidget.h"
+#include "NeonDistrict/InteractionPromptWidget.h"
+#include "NeonDistrict/InteractionComponent.h"
 
 void ANeonDistrictPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	// HUD는 로컬 플레이어에게만
 	if (!IsLocalPlayerController() || !MissionObjectiveClass) return;
 	
+	// 목표 문구
 	MissionObjective = CreateWidget<UMissionObjectiveWidget>(this, MissionObjectiveClass);
 	if (MissionObjective)
 	{
@@ -19,6 +23,34 @@ void ANeonDistrictPlayerController::BeginPlay()
 	else
 	{
 		UE_LOG(LogTemp, Error, TEXT("[NeonDistrict] 목표 위젯 생성 실패"));
+	}
+	
+	// 상호작용 프롬포트
+	if (InteractionPromptClass)
+	{
+		InteractionPrompt = CreateWidget<UInteractionPromptWidget>(this, InteractionPromptClass);
+		if (InteractionPrompt)
+		{
+			InteractionPrompt->AddToPlayerScreen(0);
+			
+			// 첫 스폰에서는 OnPossess가 BeginPlay보다 먼저 올 수 있다. 이미 폰이 있으면 지금 묶는다
+			InteractionPrompt->BindToComponent(GetPawn() ? GetPawn()->FindComponentByClass<UInteractionComponent>() : nullptr);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("[NeonDistrict] 프롬포트 위젯 생성실패"));
+		}
+	}
+}
+
+void ANeonDistrictPlayerController::OnPossess(APawn* InPawn)
+{
+	Super::OnPossess(InPawn);
+	
+	// 폰이 바뀔 때마다 그 폰의 상호작용 컴포넌트에 다시 묶는다
+	if (InteractionPrompt)
+	{
+		InteractionPrompt->BindToComponent(InPawn ? InPawn->FindComponentByClass<UInteractionComponent>() : nullptr);
 	}
 }
 

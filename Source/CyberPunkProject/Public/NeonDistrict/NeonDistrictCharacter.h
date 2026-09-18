@@ -13,7 +13,6 @@
 class ANeonDistrictCharacter;
 class UInteractionComponent;
 class UInputAction;
-class UInteractionPromptWidget;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnNeonCharacterDied, ANeonDistrictCharacter*)
 
@@ -33,16 +32,6 @@ protected:
 	//죽고 나서 재시작까지의 시간
 	UPROPERTY(EditDefaultsOnly, Category="NeonDistrict", meta=(ClampMin=0, ClampMax=10))
 	float RestartDelay = 2.f;
-	
-	//상호작용 프롬포트 위젯 클래스. 에디터에서 WBP_InteractionPrompt 지정
-	UPROPERTY(EditDefaultsOnly, Category="UI")
-	TSubclassOf<UInteractionPromptWidget> InteractionPromptClass;
-	
-	//생성된 위젯
-	UPROPERTY()
-	TObjectPtr<UInteractionPromptWidget> InteractionPrompt;
-	
-	virtual void BeginPlay() override;
 	
 	FTimerHandle RestartTimer;
 	
