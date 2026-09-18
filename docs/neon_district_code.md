@@ -778,3 +778,98 @@ ANeonDistrictMission ──Register/Unregister──▶ UMissionRegistry (UWorld
 
 플레이 → 아무것도 없음 → `ND.AcceptMission` → "건물에 진입하세요" → 트리거 진입 → "적을 처리하세요"
 → `ND.SetMissionStep 1` → "창고 키를 획득하세요" → `NDKill` → 부활 후 "적을 처리하세요"(구간 리셋). 위젯 하나만 갱신된다.
+
+---
+
+## 11. 구간 리셋 — 데이터 레이어 재활성화
+
+로드맵 3-B. 플레이어가 죽으면 구간 안의 것들(적·키·문)을 처음 상태로 되돌린다.
+관련 커밋: `5b2bb21`.
+
+### 11-1. 목표와 접근
+
+되돌릴 대상마다 리셋 코드를 쓰는 대신, 그것들을 런타임 데이터 레이어 `DL_Mission`에 넣고 **레이어를 내렸다 올려서**
+디스크에 저장된 상태로 다시 읽게 한다. 되돌릴 대상이 늘어도 누락이 없고, 초기 상태를 `Unloaded`로 두면
+"수락 전 적 없음"이 코드 없이 충족된다. 미션 액터·트리거·부활 지점은 이 레이어에 넣지 않는다.
+
+### 11-2. 만든 순서
+
+1. **에디터에서 먼저 검증.** `DL_Mission` 에셋(Runtime) → 레벨 인스턴스, Initial Runtime State = Unloaded →
+   물리 켠 테스트 큐브를 레이어에 → 콘솔 `wp.Runtime.SetDataLayerRuntimeState Unloaded / Activated DL_Mission`으로
+   큐브가 사라졌다 제자리로 오는 것 확인. 코드가 안 될 때 레이어 문제인지 코드 문제인지 가르기 위해.
+2. **`ANeonDistrictMainMission`에 구현.** 창고만의 일이 아니라 메인 미션 공통이라 `AWarehouseMission`이 아닌 부모에.
+   `SegmentLayer`(`TObjectPtr<const UDataLayerAsset>`, EditAnywhere)를 레벨의 `WarehouseMission`에서 지정.
+3. **대기 조건을 세 번 틀리고 네 번째에 맞춤** (11-3).
+
+### 11-3. 진짜 원인 — "월드에서 빠짐"과 "메모리에서 사라짐"은 다르다
+
+| 시도 | 대기 조건 | 결과 |
+|---|---|---|
+| `IsAllStreamingCompleted()` | 대기 중인 스트리밍 없음 | 0.1초 만에 통과, 큐브 밀린 자리 그대로 |
+| 액터 순회 `ContainsDataLayer` | 레이어 액터가 월드에 없음 | 동일 |
+| `GetLoadedLevel()` | 셀 스트리밍 레벨이 레벨을 안 듦 | 동일 |
+| **패키지가 메모리에 없음** + GC 요청 | 셀 레벨이 실제로 지워짐 | 0.2초, 제자리 복귀 |
+
+세 시도 모두 "월드에서 빠졌는가"까지만 봤다. 엔진 소스에서 확인한 실제 동작:
+
+- `SetDataLayerRuntimeState(Unloaded)`는 셀 스트리밍 레벨에 플래그만 켜고, 제거는 다음 스트리밍 업데이트가 한다.
+  같은 프레임에 `Activated`가 오면 플래그만 도로 뒤집힌다.
+- 내려간 레벨이 GC 전이면 엔진이 **그 레벨을 그대로 재사용**한다 (`WorldPartitionLevelStreamingDynamic.cpp`의
+  "Reuse existing Level"). 셀 경계를 왔다갔다할 때 디스크를 다시 읽지 않으려는 최적화.
+- 일반 레벨 스트리밍은 내려간 뒤 GC를 강제하지만(`GLevelStreamingForceGCAfterLevelStreamedOut = 1`),
+  **World Partition은 이걸 끈다** (`WorldPartitionSubsystem.cpp`). 셀이 많아 매번 GC 히치를 낼 수 없어서.
+
+그래서 GC 주기(약 60초) 안에 올리면 항상 밀린 큐브를 포함한 옛 레벨이 돌아왔다. 콘솔로 됐던 건 두 명령 사이에
+우연히 GC가 돌았던 것이다.
+
+### 11-4. 최종 동작
+
+```text
+SetupSegment()
+  ① 레이어 셀의 레벨 패키지 이름을 기억   — 내려간 스트리밍 레벨은 월드 목록에서 빠져 나중엔 못 찾는다
+  ② Unloaded, 0.1초 타이머 시작
+
+ActiveSegmentWhenUnloaded()   0.1초마다
+  ③ 셀이 아직 월드에 붙어 있으면 대기
+  ④ 패키지가 아직 메모리에 있으면 GEngine->ForceGarbageCollection(true) 요청 후 대기   — 다음 틱에 GC
+  ⑤ 둘 다 통과 → 타이머 중지, Activated
+```
+
+World Partition이 끈 GC를 이 레이어에 한해 우리가 대신 거는 셈이다. 첫 시작은 레이어가 원래 `Unloaded`라 ③④가
+즉시 통과해 분기 없이 같은 코드로 돈다. 빠르게 두 번 죽어도 같은 타이머 핸들이 교체되고 `Unloaded`는 멱등이라 안전하다.
+`ForceGarbageCollection`은 요청만 하고 실제 GC는 다음 틱이라, 요청하고 `return` → 다음 틱에 다시 확인하는 구조다.
+
+**택하지 않은 대안** — 콘솔 변수 `LevelStreaming.ShouldReuseUnloadedButStillAroundLevels 0`으로 재사용을 끄는 것.
+GC 전까지 셀이 안 올라와 최대 60초 빈 구간이 생기고, 모든 셀의 스트리밍 성능에 영향을 준다. 미션 하나 때문에 전역을 바꿀 일이 아니다.
+
+### 11-5. 어떻게 찾았나 — 혼자 도는 테스트
+
+PIE를 직접 못 돌려서 `-NDSegmentTest` 인자로 실행하면 `BeginPlay`에서 타이머로 도는 임시 테스트를 넣고
+`-game -unattended`로 돌려 로그만 읽었다: 2초 레이어 올리기 → 5초 큐브 500cm 밀기 → 6초 `SetupSegment()` →
+0.05초마다 스트리밍 레벨 상태·큐브 이름·위치 덤프 → 12초 종료.
+
+```text
+t=6.11  cellLevels=0 cube=none                                   ← 내려감
+t=6.15  cube=StaticMeshActor_..._1920928583  loc=X=-5471          ← 같은 객체, 밀린 위치
+```
+
+**재활성화 전후 액터 이름이 같다** = 새로 만든 게 아니라 같은 객체. 여기서 재사용 코드를 찾아 들어갔다.
+고친 뒤 위치가 저장값(X=-5970)으로 돌아온 것을 확인하고 테스트 코드는 통째로 제거했다.
+
+### 11-6. 걸렸던 것
+
+- **에디터를 켜둔 채 외부에서 세 번 빌드**해서 번호 DLL이 다시 쌓였고, 에디터가 `-0024`를 물고 있어
+  `Unable to delete hot-reload file`이 났다. 에디터 끄고 번호 DLL 정리 후 재빌드. 외부 빌드는 에디터를 먼저 끈다.
+- 헤더에서 `ClearTimer` 줄이 빠진 채 빌드된 적이 있다. 타이머가 `Activated` 이후에도 0.1초마다 돌았지만
+  ③에서 `return`해 조용히 계속 돌기만 해서 로그로는 안 드러났다.
+
+### 11-7. 이번에 쓴 API
+
+| | 뜻 |
+|---|---|
+| `UDataLayerManager::GetDataLayerManager(this)` / `SetDataLayerRuntimeState(Asset, State)` | 런타임 데이터 레이어 상태 전환. `Unloaded / Loaded / Activated` |
+| `UWorld::GetStreamingLevels()` + `UWorldPartitionLevelStreamingDynamic` | 셀 하나가 스트리밍 레벨 하나. `GetWorldPartitionRuntimeCell()->ContainsDataLayer(Asset)`로 레이어 소속 확인 |
+| `ULevelStreaming::GetWorldAssetPackageFName()` | 셀 레벨의 패키지 이름. 내려간 뒤에도 이 이름으로 메모리 존재를 물을 수 있다 |
+| `StaticFindObjectFast(UPackage::StaticClass(), nullptr, Name, EFindObjectFlags::None, RF_NoFlags, EInternalObjectFlags::Garbage)` | 마지막 인자가 "Garbage 표시된 건 제외". 엔진의 재사용 코드가 같은 호출로 판단하니 같은 기준으로 본다 |
+| `GEngine->ForceGarbageCollection(true)` | 다음 틱에 전체 GC. 평소 주기(약 60초)를 한 번 앞당긴다 |
+| `wp.Runtime.SetDataLayerRuntimeState <State> <Layer>` | 콘솔에서 레이어 상태 전환. 코드 전에 레이어 자체를 검증할 때 |
