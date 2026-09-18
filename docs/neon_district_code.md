@@ -873,3 +873,148 @@ t=6.15  cube=StaticMeshActor_..._1920928583  loc=X=-5471          ← 같은 객
 | `StaticFindObjectFast(UPackage::StaticClass(), nullptr, Name, EFindObjectFlags::None, RF_NoFlags, EInternalObjectFlags::Garbage)` | 마지막 인자가 "Garbage 표시된 건 제외". 엔진의 재사용 코드가 같은 호출로 판단하니 같은 기준으로 본다 |
 | `GEngine->ForceGarbageCollection(true)` | 다음 틱에 전체 GC. 평소 주기(약 60초)를 한 번 앞당긴다 |
 | `wp.Runtime.SetDataLayerRuntimeState <State> <Layer>` | 콘솔에서 레이어 상태 전환. 코드 전에 레이어 자체를 검증할 때 |
+
+---
+
+## 12. Fixer NPC와 대화 — 수락, 분기, 완료
+
+로드맵 4번 ①~④. 대로의 Fixer에게 말을 걸어 미션을 받고, 아이템을 들고 돌아오면 완료·랭크.
+`ND.AcceptMission` 콘솔 명령을 실제 플레이로 대체한다. 관련 커밋: `979498e`, `a6d19ca`, `b7df929`, `6ca09ad`.
+
+### 12-1. 전체 흐름
+
+```text
+플레이어 E
+  → UInteractionComponent::TryInteract  →  AFixerNPC::Interact
+       PickStartRow()                      미션 상태로 시작 행 선택
+       PC->StartDialogue(테이블, 행)        위젯 열고 이동·시점 잠금
+       위젯->OnEffect ← ApplyEffect        줄의 Effect를 미션에 적용할 준비
+플레이어 E (대화 중)
+  → ANeonDistrictCharacter::DoInteract   →  PC->AdvanceDialogue
+       UDialogueWidget::Advance            현재 줄 Effect 방송 → 다음 행 → 없으면 Finish
+       OnFinished → 컨트롤러가 입력 복구
+```
+
+### 12-2. 조각별 역할
+
+| 조각 | 역할 |
+|---|---|
+| `AFixerNPC` | `IInteractable`. 캡슐(Visibility 차단) + 스켈레탈 메시(NoCollision). `Mission` 참조(EditInstanceOnly), 대사 테이블, 상태별 시작 행 4개. 시작 행을 고르고 Effect를 미션에 적용 |
+| `FDialogueLine` (`MissionDialogueTypes.h`) | 데이터 테이블 행: Speaker, Text, NextRow, Effect(None / AcceptMission / CompleteMission) |
+| `DT_FixerDialogue` | `Intro_1~3` → 수락, `InProgress_1`, `Return_1` → 완료, `Completed_1` |
+| `UDialogueWidget` (abstract) | 현재 행을 들고 `Advance()`. 미션을 모르고 `OnEffect` / `OnFinished` 델리게이트만 |
+| `WBP_Dialogue` | `SpeakerText` · `LineText`, `Update Line` 이벤트 |
+| `ANeonDistrictPlayerController` | 위젯 소유(한 번 만들어 재사용), `StartDialogue` / `AdvanceDialogue` / `IsInDialogue`, `SetIgnoreMoveInput` / `SetIgnoreLookInput` 잠금·복구 |
+| `ANeonDistrictCharacter::DoInteract` | 대화 중이면 E = 다음 줄, 아니면 E = 상호작용 |
+| `ANeonDistrictMission::CanComplete()` | virtual, 기본 false. 창고는 `InProgress && Returning`. 대사 선택과 `CompleteMission()` 가드 양쪽에서 쓴다 |
+
+### 12-3. 수락 — E 한 번이 HUD까지 닿는 경로
+
+```text
+E (Intro_3 "알았어"를 넘김)
+  DoInteract → PC->AdvanceDialogue → UDialogueWidget::Advance
+    CurrentEffect == AcceptMission → OnEffect.Execute → AFixerNPC::ApplyEffect
+      → Mission->AcceptMission()
+           State: NotAccepted → Accepted
+           Registry->Register(this) → OnActiveMissionsChanged(미션, true)
+             → UMissionObjectiveWidget: 분류 일치 → TrackMission → Refresh → "건물에 진입하세요"
+           NotifyStateChanged()
+    ShowRow(NextRow = None) → Finish → Collapsed → OnFinished → 입력 복구
+```
+
+| 시점 | `State` | 등록부 | HUD |
+|---|---|---|---|
+| 대화 중 (Intro_1~3 표시) | `NotAccepted` | 없음 | 없음 |
+| Intro_3을 **넘기는 순간** | `Accepted` | 등록 | "건물에 진입하세요" |
+| 트리거 진입 | `InProgress` | 그대로 | "적을 처리하세요" |
+
+**Effect는 줄을 넘길 때 적용된다.** "알았어"가 떠 있는 동안은 아직 미수락. 위젯이 닫히는 것과 HUD가 뜨는 것이 같은 E 한 번에 일어난다.
+`Register`가 `StartMission`이 아닌 `AcceptMission`에 있는 이유가 여기 있다 (10절) — 등록부는 "진행 중"이 아니라 "받은 미션".
+
+안전장치: `AcceptMission()`은 `NotAccepted`일 때만 동작. `StartDialogue`는 대화 중이면 `nullptr`. `CanInteract`는 `Mission == nullptr`면 false —
+다만 로그 없이 조용히 무시라 배치 실수를 잡기 어렵다 (12-6).
+
+### 12-4. 상태에 따른 대화 분기
+
+NPC는 미션에게 두 가지만 묻는다 — `GetState()`와 `CanComplete()`. 그걸로 시작 행 하나를 고르고, 그 뒤는 테이블의 `NextRow`가 잇는다.
+
+| 미션 상태 | `CanComplete()` | 시작 행 | 대사 | 줄 끝 Effect |
+|---|---|---|---|---|
+| `NotAccepted` | — | `Intro_1` → `Intro_2` → `Intro_3` | 의뢰 → "알았어" | `AcceptMission` |
+| `Accepted` / `InProgress` | false | `InProgress_1` | "아직이야? 서둘러" | — |
+| `InProgress` | **true** (Returning) | `Return_1` | "가져왔군. 값은 약속대로" | `CompleteMission` |
+| `Completed` | — | `Completed_1` | "수고했어" | — |
+
+```cpp
+FName AFixerNPC::PickStartRow() const
+{
+	switch (Mission->GetState())
+	{
+	case EMissionState::NotAccepted: return IntroRow;
+	case EMissionState::Completed:   return CompletedRow;
+	default:                         return Mission->CanComplete() ? ReturnRow : InProgressRow;
+	}
+}
+```
+
+**분기의 두 층.** 1층은 미션 공통 상태(`EMissionState`)라 `switch`로 직접 본다. 2층 "아이템을 들고 왔나"는 창고 미션의
+`Step == Returning`이지만 NPC는 그걸 모른다 — 미션에 virtual 질의 `CanComplete()`를 두고 자식이 답한다.
+다른 미션이 오면 그 미션이 자기 조건으로 답하고 NPC 코드는 그대로다. "소비자는 미션 내부를 모른다"(7절)의 연장.
+
+**`CanComplete()`가 두 곳에서 쓰이는 이유.** `PickStartRow`(Return_1을 고를지)와 `CompleteMission()`(실행할지, false면 return)이
+같은 함수를 보니 **둘이 어긋날 수 없다.** 대사가 "가져왔군"으로 갈라졌다면 완료도 반드시 되고, 테이블에서 `InProgress_1`에
+실수로 `CompleteMission`을 넣어도 가드가 막는다 — 조기 완료는 데이터로 일으킬 수 없다.
+
+**왜 시작 행만 코드가 고르나.** 대안은 행마다 "어느 상태에서 보이나" 조건 필드를 두고 위젯이 걸러 가는 방식(로드맵 원안)이었다.
+그러면 위젯이 미션 상태를 알아야 해서 "위젯은 미션을 모른다"가 깨지고, 조건이 행마다 흩어져 "지금 상태에서 무슨 대사가 나오지"를
+한눈에 못 본다. 시작 행 4개를 NPC 프로퍼티로 두면 분기가 함수 하나에 모이고 나머지는 단순 연결 리스트다.
+상태가 늘면 프로퍼티와 `case` 하나씩 — 사이드 미션이 들어와도 같은 NPC 클래스로 된다.
+
+### 12-5. 설계 판단
+
+**NPC가 주는 미션은 레벨에서 지정한다.** 등록부는 "받은 미션"만 들어 수락 전 미션은 못 찾는다.
+`EditInstanceOnly TObjectPtr<ANeonDistrictMission>`로 배치된 NPC에 `WarehouseMission`을 꽂는다. 추상 부모 타입이라 어떤 미션이든 꽂힌다.
+
+**미션 상태 변화는 데이터에 있다.** 어느 줄에서 수락·완료되는지는 행의 `Effect`. 기획이 대사 구조를 바꿔도 코드를 안 건드린다.
+
+**위젯은 미션을 모른다.** Effect를 델리게이트로 던지고 적용은 NPC가 한다. `OnEffect`는 단일 델리게이트(`DECLARE_DELEGATE`)라
+NPC가 `BindUObject`하면 이전 것이 교체돼, 위젯을 재사용해도 두 번째 NPC의 Effect가 첫 NPC로 가지 않는다.
+
+**입력 잠금은 컨트롤러의 `SetIgnoreMoveInput` / `SetIgnoreLookInput`.** 엔진 내장, 카운트 방식이라 `true`/`false` 짝만 맞추면 된다.
+E는 계속 들어오니 캐릭터가 `IsInDialogue()`로 분기 — `IA_Interact` 매핑을 그대로 쓰고 키를 하드코딩하지 않는다. 사격은 아직 안 막는다.
+
+**시작 행 이름이 프로퍼티인 이유.** 클래스에 박으면 두 번째 NPC에서 코드를 고쳐야 한다. 인스턴스가 정하면 같은 클래스로 다른 대사.
+
+**완료 문구에 랭크.** `ANeonDistrictMainMission::GetObjectiveText` 오버라이드, `FText::Format` + `NSLOCTEXT`.
+값이 들어가는 첫 문구라 현지화 가능한 형태로. 완료 후 등록 해제되므로 HUD는 "미션 완료 — 랭크 S"를 마지막 문구로 남긴다.
+
+### 12-6. 걸렸던 것
+
+- **`DialogueTypes.h` 이름 충돌** — 엔진에 `Sound/DialogueTypes.h`가 있어 UHT가 `.generated.h` 중복으로 거부. `MissionDialogueTypes.h`로 변경.
+- **새 클래스를 Live Coding으로 추가** — `FixerNPC`의 인터페이스 목록이 등록되지 않아 `Implements<UInteractable>()`이 false.
+  로그 `Could not find existing class FixerNPC ... assuming new`, `Can't find class descriptor`. 에디터 재시작으로 해결.
+- **배치한 NPC에 Mission·메시 미지정, Z=0** — `CanInteract` false로 E 무시(로그 없음), 메시 없어 투명, 캡슐 절반이 바닥 아래라
+  카메라 높이 트레이스가 위를 지나감. 액터 파일을 읽어 참조가 없는 것을 확인.
+- **레벨 미저장** — PIE는 메모리 값으로 돌아서 되는데 액터 파일엔 Mission / DialogueTable 참조가 없었다.
+  두 번 다 커밋 전에 파일 mtime과 내용으로 잡음. 에디터에서 설정만 바꾸고 저장을 안 하면 PIE는 되고 커밋은 빈 채가 된다.
+- **`PickStartRow`의 `Accepted → CompletedRow`** — 수락 직후 "수고했어". `Completed` 케이스로 수정, `Accepted`는 `default`.
+
+### 12-7. 이번에 쓴 API
+
+| | 뜻 |
+|---|---|
+| `FTableRowBase` + `USTRUCT(BlueprintType)` | 데이터 테이블 행 구조의 조건. 에디터의 행 구조 목록에 나온다 |
+| `UDataTable::FindRow<T>(Name, Context)` | 행 조회. 두 번째 인자는 못 찾았을 때 경고 로그의 문맥 문자열 |
+| `meta = (RequiredAssetDataTags = "RowStructure=/Script/CyberPunkProject.DialogueLine")` | 디테일 드롭다운에 그 행 구조의 테이블만 보이게 |
+| `EditInstanceOnly` | 클래스 기본값이 아니라 배치된 인스턴스에서만 편집. 레벨 액터 참조에 맞다 |
+| `DECLARE_DELEGATE` / `BindUObject` / `ExecuteIfBound` | 단일 델리게이트. 묶으면 교체, 안 묶였으면 조용히 통과 |
+| `APlayerController::SetIgnoreMoveInput / SetIgnoreLookInput` | 이동·시점 입력 잠금. 카운트 방식 |
+| `APawn::GetController<T>()` | 폰에서 컨트롤러를 타입으로 |
+| `FText::Format` + `NSLOCTEXT` | 값이 들어가는 문구를 현지화 가능한 형태로 |
+
+### 12-8. 검증 순서
+
+플레이 → NPC E → 세 줄 → 수락, HUD "건물에 진입하세요" → 다시 E → "아직이야?" → 트리거 진입 → `ND.SetMissionStep 3` →
+NPC E → "가져왔군" → HUD "미션 완료 — 랭크 S". 중간에 `NDKill` 넣으면 A. `ND.SetMissionStep 1`에서 말 걸면 "아직이야?"여야 한다.
+
+남은 것 (4번): 완료 후 NPC 이동, 통화 연출(카메라 — NPC 쪽에 두고 `SetViewTargetWithBlend`), 대화 중 사격 차단.
