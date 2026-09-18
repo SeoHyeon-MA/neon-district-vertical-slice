@@ -6,16 +6,6 @@
 #include "NeonDistrict/WarehouseMission.h"
 #include "Components/StaticMeshComponent.h"
 
-namespace
-{
-	//진행 중인 창고 미션. 없으면 nullptr
-	AWarehouseMission* FindWarehouseMission(const UObject* WorldContext)
-	{
-		UMissionRegistry* Registry = WorldContext->GetWorld()->GetSubsystem<UMissionRegistry>();
-		return Registry ? Cast<AWarehouseMission>(Registry->GetActiveMission(EMissionCategory::Main)) : nullptr;
-	}
-}
-
 // Sets default values
 AWarehouseKey::AWarehouseKey()
 {
@@ -39,13 +29,13 @@ FText AWarehouseKey::GetInteractionPrompt() const
 bool AWarehouseKey::CanInteract(APawn* InteractingPawn) const
 {
 	// 키가 떨어진 단계에서만. 그 전엔 바닥에 있어도 못 줍는다
-	const AWarehouseMission * Mission = FindWarehouseMission(this);
+	const AWarehouseMission * Mission = AWarehouseMission::FindActive(this);
 	return Mission && Mission->GetStep() == EWarehouseStep::KeyDropped;
 }
 
 void AWarehouseKey::Interact(APawn* InteractingPawn)
 {
-	if (AWarehouseMission* Mission = FindWarehouseMission(this))
+	if (AWarehouseMission* Mission = AWarehouseMission::FindActive(this))
 	{
 		Mission->AdvanceTo(EWarehouseStep::KeyAcquired);
 		Destroy();

@@ -4,6 +4,7 @@
 #include "NeonDistrict/WarehouseMission.h"
 #include "HAL/IConsoleManager.h"
 #include "EngineUtils.h"
+#include "MissionRegistry.h"
 #include "Engine/World.h"
 
 void AWarehouseMission::SetupSegment()
@@ -53,6 +54,13 @@ FText AWarehouseMission::GetObjectiveText() const
 bool AWarehouseMission::CanComplete() const
 {
 	return IsInProgress() && Step == EWarehouseStep::ItemAcquired;
+}
+
+AWarehouseMission* AWarehouseMission::FindActive(const UObject* WorldContext)
+{
+	const UWorld* World = WorldContext ? WorldContext->GetWorld() : nullptr;
+	UMissionRegistry* Registry = World ? World->GetSubsystem<UMissionRegistry>() : nullptr;
+	return Registry ? Cast<AWarehouseMission>(Registry->GetActiveMission(EMissionCategory::Main)) : nullptr;
 }
 
 //####################################디버그 설정################################

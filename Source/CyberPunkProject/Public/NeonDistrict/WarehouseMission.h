@@ -41,4 +41,7 @@ public:
 	
 	virtual bool CanComplete() const override;
 	
+	// 진행 중인 창고 미션. 등록부에서 찾는다. 없으면 nullptr
+	static AWarehouseMission* FindActive(const UObject* WorldContext);
+	
 };
