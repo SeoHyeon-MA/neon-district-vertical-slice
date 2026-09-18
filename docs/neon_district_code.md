@@ -470,7 +470,7 @@ IA_Interact (IMC_Default 에 E)
 |---|---|
 | `IInteractable` | 약속 셋 — `GetInteractionPrompt()` `CanInteract()` `Interact()` |
 | `UInteractionComponent` | 탐색·방송·E키 처리. 캐릭터에 부착 |
-| `UInteractionPromptWidget` | 방송 구독, 문구 전달, 표시·숨김 (`UCLASS(abstract)`) |
+| `UInteractionPromptWidget` | 방송 구독, 문구 전달, 표시·숨김 (`UCLASS(abstract)`). 컨트롤러가 소유하고 빙의 때마다 폰의 컴포넌트에 재바인딩 (8-7) |
 | `WBP_InteractionPrompt` | 텍스트 블록 배치, `Update Prompt` 이벤트에서 `SetText` |
 | `AInteractableTest` | 배선 검증용 최소 구현체 |
 
@@ -499,6 +499,8 @@ IA_Interact (IMC_Default 에 E)
   그대로 뒀으면 매번 같은 에러를 만났을 것이다.
 - **UMG에서 `Set Text` 노드가 안 보인다.** Context Sensitive 검색은 타깃이 정해져야 후보를 보여준다.
   변수를 먼저 그래프에 놓고 그 핀에서 선을 끌어야 나온다.
+- **부활 후 프롬프트가 안 뜬다** (9/18, 창고 문 검증 중 발견). 위젯을 캐릭터 `BeginPlay`에서 `IsLocallyControlled()`일 때 만들었는데,
+  부활 폰은 빙의 전에 `BeginPlay`가 끝나 조건이 거짓이었다. 8-7에 정리.
 
 ### 8-5. 이번에 쓴 API
 
@@ -526,6 +528,50 @@ class AWarehouseDoor : public AActor, public IInteractable
 ```
 
 `CanInteract`는 기본값이 `true`라 조건이 없는 대상은 생략해도 된다.
+
+### 8-7. 부활 후 프롬프트가 안 뜨던 이유 — 폰 `BeginPlay`와 빙의의 순서
+
+처음엔 프롬프트 위젯을 `ANeonDistrictCharacter::BeginPlay`에서 `IsLocallyControlled()`일 때 만들었다.
+첫 스폰에서는 되고 부활 후에는 안 됐다. `IsLocallyControlled()`는 폰에 컨트롤러가 붙어 있어야 참인데,
+폰의 `BeginPlay`와 컨트롤러가 붙는 `Possess`의 **순서가 첫 스폰과 부활에서 다르다.**
+
+```text
+첫 스폰  (월드 시작 전)
+  SpawnPlayActor → Login → RestartPlayer
+      SpawnDefaultPawn → SpawnActor     ← HasBegunPlay()==false 라 폰 BeginPlay 보류
+      Possess(폰)                        ← 컨트롤러 연결
+  World->BeginPlay()
+      모든 액터 BeginPlay                 ← 이때 폰 BeginPlay. 이미 컨트롤러 있음   ✔
+
+부활  (월드가 도는 중)
+  RequestRestart → GameMode->RestartPlayer
+      SpawnDefaultPawn → SpawnActor
+          PostActorConstruction → BeginPlay 즉시   ← 컨트롤러 없음. IsLocallyControlled()==false   ✘
+      Possess(폰)                                  ← 이제야 연결. BeginPlay는 이미 끝났다
+```
+
+`SpawnActor`는 월드가 이미 시작됐으면 액터 생성 직후 `BeginPlay`를 바로 부르고, `RestartPlayer`는 폰을 만든 **다음에** `Possess`한다.
+첫 스폰에서만 순서가 뒤집혀 있어서 3-A의 부활 검증(체크포인트·무기·미션 단계)은 전부 통과했고, 부활 + 상호작용 조합은 이번이 처음이었다.
+
+같은 구조에 드러나지 않은 문제가 둘 더 있었다: 캐릭터가 위젯을 만들면 죽을 때마다 새 위젯이 생기고 이전 것은 뷰포트에 남아 쌓인다.
+`BindToComponent`가 이전 구독을 안 끊어서 재바인딩하면 두 컴포넌트의 방송을 다 받는다.
+
+**고친 것 — 소유자를 컨트롤러로.** 목표 위젯을 컨트롤러에 둔 이유(10절 "컨트롤러는 죽어도 살아남는다")가 그대로 적용된다.
+컨트롤러가 위젯을 한 번 만들고, `OnPossess`에서 그 폰의 `UInteractionComponent`에 다시 묶는다. `OnPossess`는 첫 스폰이든 부활이든
+빙의할 때마다 불리므로 순서 문제가 없고, 위젯이 하나뿐이라 누적도 없다. `BindToComponent`는 `BoundComponent`가 있으면 `RemoveAll(this)` 후
+새로 묶고, `nullptr`이면 Collapsed. 첫 스폰에서는 `OnPossess`가 컨트롤러 `BeginPlay`(위젯 생성)보다 먼저 올 수 있어 — 위 흐름에서
+`Possess`가 `World->BeginPlay()` 앞이다 — `BeginPlay`에서 위젯을 만든 직후 `GetPawn()`으로 한 번 더 묶는다. 어느 쪽이 먼저 와도 한 번은 묶인다.
+
+고친 뒤에도 "아예 안 뜬다"였는데, `BP_NeonDistrictPlayerController`에 새 프로퍼티 `InteractionPromptClass`를 지정하지 않아
+`if (InteractionPromptClass)`가 조용히 통과한 것이었다. 목표 위젯 때에 이어 두 번째라 `else`에 에러 로그를 두기로 했다.
+
+**교훈**
+- 폰의 `BeginPlay`에서 컨트롤러를 전제하지 않는다. 컨트롤러가 필요한 초기화는 `PossessedBy` / `OnPossess` / `PawnClientRestart` 쪽이다.
+  3-A의 `SetPlayerDefaults`(무기 지급)가 같은 이유로 그 자리에 있다.
+- HUD는 폰이 아니라 컨트롤러가 소유한다. 목표·대화·프롬프트 위젯 셋이 이제 같은 자리에 있다.
+- 첫 스폰에서만 통과하는 검증을 조심한다. 부활 후 같은 시나리오를 한 번 더 도는 것을 검증 순서에 넣는다.
+
+관련 커밋: `1215201`.
 
 ---
 
@@ -741,7 +787,8 @@ ANeonDistrictMission ──Register/Unregister──▶ UMissionRegistry (UWorld
 `Super::StartMission`은 체크포인트·구독·구간 세팅을 마친 뒤 마지막에 부른다. HUD가 방송을 받을 때 미션이 완성 상태여야 한다.
 
 **위젯 소유자는 PlayerController.** 캐릭터는 죽을 때마다 새로 생겨 위젯이 겹친다. 컨트롤러는 살아남으니 한 번만 생성한다.
-템플릿이 탄약 카운터를 컨트롤러에서 만드는 것과 같은 자리다.
+템플릿이 탄약 카운터를 컨트롤러에서 만드는 것과 같은 자리다. 캐릭터에 남겨뒀던 프롬프트 위젯은 부활 폰의 `BeginPlay`가
+빙의보다 먼저 돌아 아예 안 만들어지는 문제가 드러나(8-7) 같은 자리로 옮겼다. 폰에 묶이는 것은 `OnPossess`에서 재바인딩한다.
 
 **등록 시점은 `AcceptMission`.** 처음엔 `StartMission`에 뒀는데, 그러면 Accepted 상태의 "건물에 진입하세요"가 영영 안 보인다.
 등록부의 의미를 "진행 중"이 아니라 "받은 미션"으로 잡았다 — 플레이어에게는 수락한 순간부터 목표가 있다.
