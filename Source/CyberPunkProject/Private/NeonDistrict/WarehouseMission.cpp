@@ -44,15 +44,15 @@ FText AWarehouseMission::GetObjectiveText() const
 	{
 	case EWarehouseStep::Fighting: return FText::FromString(TEXT("적을 처리하세요"));
 	case EWarehouseStep::KeyDropped: return FText::FromString(TEXT("창고 키를 획득하세요"));
+	case EWarehouseStep::KeyAcquired: return FText::FromString(TEXT("창고 문을 여세요"));
 	case EWarehouseStep::ItemAcquired: return FText::FromString(TEXT("Fixer에게 돌아가세요"));
-	case EWarehouseStep::Returning: return FText::FromString(TEXT("Fixer에게 돌아가세요"));
 	default: return FText::GetEmpty();
 	}
 }
 
 bool AWarehouseMission::CanComplete() const
 {
-	return IsInProgress() && Step == EWarehouseStep::Returning;
+	return IsInProgress() && Step == EWarehouseStep::ItemAcquired;
 }
 
 //####################################디버그 설정################################
@@ -63,7 +63,7 @@ static void NDSetMissionStep(const TArray<FString>& Args, UWorld* World)
 {
 	if (!World || Args.Num() == 0)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("사용법: ND.SetMissionStep <0=Fighting 1=KeyDropped 2=ItemAcquired 3=Returning"));
+		UE_LOG(LogTemp, Warning, TEXT("사용법: ND.SetMissionStep <0=Fighting 1=KeyDropped 2=ItemAcquired 3=ItemAcquired"));
 		return;
 	}
 	
