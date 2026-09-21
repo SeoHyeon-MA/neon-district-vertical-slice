@@ -61,8 +61,8 @@ FName AFixerNPC::PickStartRow() const
 	switch (Mission->GetState())
 	{
 	case EMissionState::NotAccepted: return IntroRow;
-	case EMissionState::Accepted: return InProgressRow;
-	default: return Mission->CanComplete() ? ReturnRow : InProgressRow;
+	case EMissionState::Completed: return CompletedRow;
+	default: return Mission->CanComplete() ? ReturnRow : InProgressRow; // Accepted, Inprogress
 	}
 }
 

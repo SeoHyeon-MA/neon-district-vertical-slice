@@ -111,7 +111,7 @@ static void NDMissionStatus(UWorld* World)
 
 static FAutoConsoleCommandWithWorldAndArgs GNDSetMissionStepCmd(
 TEXT("ND.SetMissionStep"),
-TEXT("창고 미션의 세부 단계를 강제로 바꾼다 (디버그용). 0=Fighting 1=KeyDropped 2=ItemAcquired 3=ItemAcquired"),
+TEXT("창고 미션의 세부 단계를 강제로 바꾼다 (디버그용). 0=Fighting 1=KeyDropped 2=KeyAcquired 3=ItemAcquired"),
 FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&NDSetMissionStep));
 
 static FAutoConsoleCommandWithWorld GNDMissionStatusCmd(
