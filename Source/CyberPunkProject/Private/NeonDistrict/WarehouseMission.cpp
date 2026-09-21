@@ -40,7 +40,7 @@ FText AWarehouseMission::GetObjectiveText() const
 		return Super::GetObjectiveText();
 	}
 	
-	//ItemAcquired와 Returning의 문구가 같습니다. 지금은 그렇고, 나중에 "셔터가 열렸다" 같은 구분이 필요해지면 나눕니다
+	// 단계별 목표 문구. 진행 중일 때만 여기 온다
 	switch (Step)
 	{
 	case EWarehouseStep::Fighting: return FText::FromString(TEXT("적을 처리하세요"));
@@ -71,7 +71,7 @@ static void NDSetMissionStep(const TArray<FString>& Args, UWorld* World)
 {
 	if (!World || Args.Num() == 0)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("사용법: ND.SetMissionStep <0=Fighting 1=KeyDropped 2=ItemAcquired 3=ItemAcquired"));
+		UE_LOG(LogTemp, Warning, TEXT("사용법: ND.SetMissionStep <0=Fighting 1=KeyDropped 2=KeyAcquired 3=ItemAcquired"));
 		return;
 	}
 	
@@ -111,7 +111,7 @@ static void NDMissionStatus(UWorld* World)
 
 static FAutoConsoleCommandWithWorldAndArgs GNDSetMissionStepCmd(
 TEXT("ND.SetMissionStep"),
-TEXT("창고 미션의 세부 단계를 강제로 바꾼다 (디버그용). 0=Fighting 1=KeyDropped 2=ItemAcquired 3=Returning"),
+TEXT("창고 미션의 세부 단계를 강제로 바꾼다 (디버그용). 0=Fighting 1=KeyDropped 2=ItemAcquired 3=ItemAcquired"),
 FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(&NDSetMissionStep));
 
 static FAutoConsoleCommandWithWorld GNDMissionStatusCmd(
