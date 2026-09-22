@@ -1028,7 +1028,7 @@ FName AFixerNPC::PickStartRow() const
 NPC가 `BindUObject`하면 이전 것이 교체돼, 위젯을 재사용해도 두 번째 NPC의 Effect가 첫 NPC로 가지 않는다.
 
 **입력 잠금은 컨트롤러의 `SetIgnoreMoveInput` / `SetIgnoreLookInput`.** 엔진 내장, 카운트 방식이라 `true`/`false` 짝만 맞추면 된다.
-E는 계속 들어오니 캐릭터가 `IsInDialogue()`로 분기 — `IA_Interact` 매핑을 그대로 쓰고 키를 하드코딩하지 않는다. 사격은 아직 안 막는다.
+E는 계속 들어오니 캐릭터가 `IsInDialogue()`로 분기 — `IA_Interact` 매핑을 그대로 쓰고 키를 하드코딩하지 않는다. 사격은 매핑 컨텍스트를 빼서 막는다 (12-10).
 
 **시작 행 이름이 프로퍼티인 이유.** 클래스에 박으면 두 번째 NPC에서 코드를 고쳐야 한다. 인스턴스가 정하면 같은 클래스로 다른 대사.
 
@@ -1064,7 +1064,7 @@ E는 계속 들어오니 캐릭터가 `IsInDialogue()`로 분기 — `IA_Interac
 플레이 → NPC E → 세 줄 → 수락, HUD "건물에 진입하세요" → 다시 E → "아직이야?" → 트리거 진입 → `ND.SetMissionStep 3` →
 NPC E → "가져왔군" → HUD "미션 완료 — 랭크 S". 중간에 `NDKill` 넣으면 A. `ND.SetMissionStep 1`에서 말 걸면 "아직이야?"여야 한다.
 
-남은 것 (4번): 완료 후 NPC 이동, 통화 연출(카메라 — NPC 쪽에 두고 `SetViewTargetWithBlend`), 대화 중 사격 차단.
+남은 것 (4번): 완료 후 NPC 이동, 통화 연출(카메라 — NPC 쪽에 두고 `SetViewTargetWithBlend`).
 
 ### 12-9. Fixer 복귀와 완료 처리
 
@@ -1106,6 +1106,49 @@ E  →  Advance → Effect = CompleteMission → AFixerNPC::ApplyEffect
 
 **검증 (9/22, 콘솔 없음)** — Fixer E → 수락 → 적 2명 처치 → 키 드롭·획득 → 문 → 칩(셔터 개방) → 셔터 통과 → Fixer E → "가져왔군" → E →
 HUD "미션 완료 — 랭크 S" + 로그 `[Mission] 완료` → 다시 E → "수고했어". 중간에 한 번 죽으면 A. 관련 커밋: `6ca09ad`, `d0ce476`, `b47be2d`.
+
+### 12-10. 대화 중 입력 잠금 — 사격 차단
+
+통화 중에도 좌클릭으로 총이 나갔다. `SetIgnoreMoveInput` / `SetIgnoreLookInput`은 이동·시점만 막고 무기 입력은 건드리지 않는다.
+관련 커밋: `74eb05c`.
+
+| 방법 | 평가 |
+|---|---|
+| `DoStartFiring`을 오버라이드해서 `IsInDialogue()`면 무시 | 템플릿에서 `virtual`이 아님. `virtual` 붙이면 템플릿 수정 (지금까지 `Die` / `OnRespawn` 둘뿐) |
+| 무기 쪽에서 컨트롤러에 물어보기 | 무기가 대화를 알게 됨. 방향이 거꾸로 |
+| **대화 중 `IMC_Weapons` 매핑 컨텍스트를 뺀다** | Enhanced Input이 원래 이렇게 쓰라고 만든 것. 사격·무기 전환이 한꺼번에 막히고 템플릿 무수정 |
+
+```text
+StartDialogue
+  SetIgnoreMoveInput(true) / SetIgnoreLookInput(true)
+  DialogueBlockedContexts 마다 Subsystem->RemoveMappingContext      ← IMC_Weapons (IA_Shoot, IA_SwapWeapon)
+  Pawn->DoStopFiring()                                                ← 이미 누르고 있던 사격 끊기
+HandleDialogueFinished
+  SetIgnoreMoveInput(false) / SetIgnoreLookInput(false)
+  DialogueBlockedContexts 마다 Subsystem->AddMappingContext(Ctx, 0)  ← 템플릿이 넣을 때와 같은 우선순위
+```
+
+`DialogueBlockedContexts`는 컨트롤러의 `EditDefaultsOnly TArray<TObjectPtr<UInputMappingContext>>` — BP에서 `IMC_Weapons`를 꽂는다.
+`IMC_Default`는 안 뺀다: E(다음 줄)가 거기 있고, 이동은 이미 막혀 있다.
+
+**왜 `DoStopFiring`이 따로 필요한가.** 매핑 컨텍스트를 빼면 그 액션의 입력이 더 이상 안 들어오는 것이지, 이미 눌린 채 진행 중인 액션에
+`Completed`가 오지는 않는다. 좌클릭을 누른 채 E로 대화를 시작하면 `bIsFiring = true`인 채로 남아 자동사격이 계속된다.
+그래서 대화 시작 순간 `DoStopFiring()`을 직접 부른다 — 템플릿이 `BlueprintCallable public`으로 열어둔 함수라 그대로 쓴다.
+
+**걸렸던 것**
+
+| 문제 | 원인 | 해결 |
+|---|---|---|
+| `error C4458: 'Character'가 클래스 멤버를 숨깁니다` | `APlayerController`에 `Character` 멤버가 이미 있음. 8절 `Instigator`와 같은 종류 | 지역 변수 `ShooterPawn` |
+| 대화 시작하면 총알이 **계속** 나감 | `DoStopFiring` 자리에 `DoStartFiring`을 씀. 시작 순간 사격을 켜고, 컨텍스트가 빠져 놓아도 `Completed`가 안 와 멈출 길이 없음 | 함수 이름 수정 |
+
+두 번째 건은 증상이 원인을 그대로 말해줬다 — "차단했는데 멈추는 게 아니라 계속 나간다"는 차단이 안 된 게 아니라 **켜진** 것.
+
+| | 뜻 |
+|---|---|
+| `ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer())` | 로컬 플레이어의 입력 서브시스템 |
+| `RemoveMappingContext` / `AddMappingContext(Ctx, Priority)` | 컨텍스트 단위로 입력 켜고 끄기 |
+| `GetPawn<T>()` | 컨트롤러에서 폰을 타입으로 |
 
 ---
 
