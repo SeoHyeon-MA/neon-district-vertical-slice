@@ -1109,9 +1109,128 @@ HUD "미션 완료 — 랭크 S" + 로그 `[Mission] 완료` → 다시 E → "�
 
 ---
 
-## 13. 순찰 경로 — 로밍을 지정 경로로
+## 13. 적 — NavMesh 확인, 생성, 순찰
 
-로드맵 5번. 템플릿 적은 EQS로 임의 지점을 골라 돌아다닌다(로밍). 우리는 지정 경로를 순서대로 돌게 바꾼다.
+로드맵 5번. 순서대로 World Partition 환경에서 NavMesh가 되는지 확인하고(9/21), 적을 레이어에 배치해 마지막 적이 키를 떨어뜨리게 하고(9/22),
+로밍을 지정 경로 순찰로 바꿨다(9/22). 관련 커밋: `15891f5`(NavMesh), `b47be2d`(적 배치·키 드롭), `5f19453`(순찰).
+배치 절차는 `docs/enemy_placement.md`.
+
+### 13-0. World Partition 환경 NavMesh 확인
+
+**왜 먼저 했나.** 로드맵 3주차 최대 위험 — "WP 환경에서 블록아웃 전역에 NavMesh가 안 깔리면 5번 전체가 멈춘다".
+적을 붙이기 전에 30분짜리 확인으로 위험을 미리 없앴다. 결과는 **통과**: 템플릿 `BP_ShooterNPC`를 플레이어와 다른 셀에 놓고
+플레이하니 걸어와서 교전했다.
+
+| 단계 | 한 것 | 결과 |
+|---|---|---|
+| 1 | `NavMeshBoundsVolume`을 플레이 구역(X −7500~+3500, Y −1500~+1500, 높이 ~1000) 전체로 | `RecastNavMesh-Default` 자동 생성 |
+| 2 | 뷰포트 `P` | 아무것도 안 뜸 |
+| 3 | Build → Build Paths | 로그 `build time: 0.00s` — 아무것도 안 구움 |
+| 4 | PIE + 적 | `Unable to find RecastNavMesh instance`, 적이 안 걸어옴 |
+| 5 | World Partition 창에서 플레이 구역 **Load Region** → Build Paths | `build time: 0.05s`, `P`에 초록, 적이 걸어옴 |
+
+**원인 — WP 에디터의 Build Paths는 "로드된 리전"만 굽는다.** `NavigationSystem.cpp`의 `CheckToLimitNavigationBoundsToLoadedRegions`:
+
+```cpp
+const TArray<FBox> LoadedWorldPartitionRegions = WorldPartition->GetUserLoadedEditorRegions();
+```
+
+WP 레벨에서 NavMesh가 `bIsWorldPartitioned`이면 에디터 빌드는 볼륨 전체가 아니라 **볼륨 ∩ 사용자가 로드한 리전**만 굽는다.
+WP 에디터에서 액터는 로드한 리전에만 존재하므로 안 로드된 셀의 바닥은 구울 수 없다. 리전을 하나도 안 로드한 채 눌러서 `0.00s`였다.
+
+**`NavDataChunkActor`가 안 생긴 이유.** 처음엔 WP 방식이면 NavMesh가 셀 단위 청크 액터로 쪼개진다고 예상했는데 안 생겼다.
+5.8에서는 WP 레벨이라도 기본은 **항상 로드되는 `RecastNavMesh` 액터 하나에 타일 전부 저장**이고, 청크 분할은 옵션
+(`bAllowWorldPartitionedNavMesh`)이다. 저장된 액터 파일이 13KB로 커진 것이 그 증거.
+
+**청크 스트리밍을 택하지 않은 이유.** 청크 스트리밍은 NavMesh를 셀마다 쪼개 셀이 로드될 때 그 조각만 올리는 방식이다.
+수 km 오픈월드용이고, 단점은 경로가 셀 경계를 넘을 때 목적지 셀이 아직 안 올라와 있으면 "길 없음"이 되는 것 — 로드맵이 걱정한 위험이
+정확히 이것이다. 150×150m에 13KB면 쪼갤 이유가 없고 쪼개면 그 위험만 얻는다. 택하지 않은 것도 판단이다.
+
+**정석 — 커맨드릿.** 블록아웃이 바뀔 때마다 "리전을 전부 로드했는지"를 사람이 기억하는 건 재현성이 없다.
+
+```text
+UnrealEditor-Cmd.exe <프로젝트> <맵> -run=WorldPartitionBuilderCommandlet -Builder=WorldPartitionNavigationDataBuilder -AllowCommandletRendering
+```
+
+창 없는 에디터가 맵의 셀을 순서대로 전부 로드해 가며 굽고 저장한 뒤 꺼진다. HLOD도 같은 빌더 체계(`-Builder=WorldPartitionHLODsBuilder`)라
+5주차에 다시 만난다. 지금은 확인이 목적이라 Build Paths로 끝냈고, 블록아웃이 굳으면 한 번 돌려 기록으로 남긴다.
+
+**남은 메모.** `Unable to find RecastNavMesh instance while trying to create UCrowdManager instance`는 월드 정리 시점에 찍히고
+동작엔 영향 없다. 문·셔터가 열릴 때 그 자리에 길이 뚫려야 하면 `RecastNavMesh`의 Runtime Generation을 `Dynamic Modifiers Only`로 —
+아직 안 바꿈, 지금은 문 뒤가 막다른 창고라 적이 들어갈 일이 없다. 블록아웃을 고친 뒤엔 **플레이 구역 전체 Load Region → Build Paths → 저장**.
+
+### 13-1. 적 생성 — 스포너 없이 배치 + 레이어
+
+**한 줄.** 적은 레벨에 직접 배치되고, `DL_Mission` 레이어가 올라올 때 "생성"되며, 내려갈 때 사라진다. 생성·리셋 코드가 따로 없다.
+
+**왜 스포너를 쓰지 않나.** 템플릿 `BP_ShooterNPCSpawner`는 주기적으로 적을 만들고 죽으면 다시 만든다 — 데스매치용 무한 리스폰이다.
+우리 미션은 "이 구간의 적 N명을 다 잡으면 다음"이라 개수가 고정이고 죽으면 처음 상태로 돌아가야 한다.
+
+| | 스포너 | 배치 + 레이어 |
+|---|---|---|
+| 개수 | 코드/타이머가 결정 | 레벨에 놓인 만큼 |
+| 위치·경로 | 스폰 지점 하나 | 액터마다 에디터에서 지정 |
+| 죽었을 때 리셋 | 살아 있는 적 정리 + 재스폰 코드 | 레이어 내렸다 올리기 (11절) |
+| 수락 전 | 스포너를 꺼둬야 함 | 레이어 초기 `Unloaded`라 자동 |
+
+**생성 흐름**
+
+```text
+Fixer 수락 → 트리거 진입 → StartMission → SetupSegment
+  → DL_Mission: Unloaded → Activated
+      → 셀 로드, 적·경로·키·문·칩·셔터 액터가 디스크 저장 상태로 생성
+      → 각 적: BeginPlay
+           → UMissionEnemyComponent::BeginPlay
+                → AWarehouseMission::FindActive(this)      등록부에서 미션을 찾음
+                → Mission->RegisterEnemy(this)
+                     ++AliveEnemies
+                     OnPawnDeath.AddDynamic(HandleEnemyDied)
+           → AI 컨트롤러 빙의 → ST_NeonDistrictEnemy 시작 → 순찰
+```
+
+미션은 적이 몇 명인지 미리 모른다. 레이어가 올라오면서 적들이 스스로 등록하고, 그 수가 곧 "이 구간의 적 수"다.
+적을 더 놓거나 빼도 코드가 안 바뀐다.
+
+**마지막 적 → 키**
+
+```text
+적 사망 → AShooterNPC::Die → OnPawnDeath 방송
+  → AWarehouseMission::HandleEnemyDied     (Fighting 단계일 때만 셈)
+       --AliveEnemies
+       0 이면: "Dead" 태그가 붙은 적을 찾아 그 위치에 KeyClass 스폰 → AdvanceTo(KeyDropped)
+```
+
+`OnPawnDeath`는 인자가 없어서 "누가 죽었는지"를 안 준다. 템플릿이 죽을 때 `Dead` 태그를 붙이니 그걸로 마지막 적의 위치를 찾는다.
+키는 **런타임 스폰**이라 레이어 밖 — 유일하게 미션이 직접 챙기는 액터다 (`DroppedKey`, `SetupSegment`에서 파괴).
+
+**리셋 흐름**
+
+```text
+플레이어 사망 → HandlePlayerDied → SetupSegment
+  → AliveEnemies = 0, DroppedKey 파괴, Step = Fighting
+  → DL_Mission: Unloaded → (GC) → Activated
+      → 살아 있던 적·죽은 적 시체 전부 사라짐 (옛 델리게이트 구독도 같이)
+      → 새 적들이 BeginPlay에서 다시 등록 → 다시 N명
+```
+
+`AliveEnemies`를 0으로 맞추는 이유: 레이어가 내려갈 때 옛 적들의 `EndPlay`는 돌지만 `OnPawnDeath`는 안 나가서, 새 적들이 세는 값이
+옛 값 위에 쌓이지 않게. 옛 적의 구독은 옛 적 객체와 함께 사라진다.
+
+**배치 규칙.** 적·경로 전부 `DL_Mission`에 — 밖이면 미션 시작 전에 `BeginPlay`가 돌아 등록에 실패하고, 수락 전부터 보이고, 죽어도 안 돌아온다.
+`BP_NeonDistrictEnemy`는 `BP_ShooterNPC`의 **자식**(재부모 아님, 13-6). 미션 액터·트리거·부활 지점·Fixer는 레이어 **밖**.
+시체는 템플릿 `DeferredDestructionTime`(5초) 뒤 자동 파괴.
+
+**걸렸던 것**
+
+| 문제 | 원인 | 해결 |
+|---|---|---|
+| `[Warehouse] 적 등록` 로그가 안 찍힘 | 재부모한 BP가 핫 리로드로 생긴 임시 클래스 `ANeonDistrictEnemy`에 물림 (`Default__ANeonDistrictEnemy`) | 에디터 재시작 후 다시 부모 지정 → 결국 컴포넌트 방식으로 |
+| 키를 안 줍고 죽으면 키가 남음 | 스폰된 키는 레이어 밖 | `SetupSegment`에서 `DroppedKey` 파괴 |
+| 키 주운 뒤 프롬프트 잔류 | 파괴된 대상을 약한 포인터가 스스로 `nullptr`로 만들어 "변화 없음"으로 판정 | `IsStale()`도 변화로 (8절) |
+
+### 13-4. 순찰 — 로밍을 지정 경로로
+
+템플릿 적은 EQS로 임의 지점을 골라 돌아다닌다(로밍). 우리는 지정 경로를 순서대로 돌게 바꾼다.
 바뀌는 건 "지점을 고르는 태스크" 하나이고, 이동·대기·조사·추격·전투는 템플릿 트리를 그대로 쓴다.
 관련 커밋: `b47be2d`(적 배치·키 드롭), `5f19453`(순찰). 배치 절차는 `docs/enemy_placement.md`.
 
@@ -1120,7 +1239,7 @@ HUD "미션 완료 — 랭크 S" + 로그 `[Mission] 완료` → 다시 E → "�
 우리:    Patrol(지정 경로)     → Investigate → Attack       ← 첫 칸만 교체
 ```
 
-### 13-1. 조각별 역할
+### 13-3. 조각별 역할
 
 | 조각 | 역할 |
 |---|---|
@@ -1131,7 +1250,7 @@ HUD "미션 완료 — 랭크 S" + 로그 `[Mission] 완료` → 다시 E → "�
 | `BP_NeonDistrictAIController` | `BP_ShooterAIController` 자식. StateTreeAI 컴포넌트의 트리만 우리 것 |
 | `BP_NeonDistrictEnemy` | `BP_ShooterNPC` 자식. AI Controller Class를 우리 컨트롤러로. `Mission Enemy` 컴포넌트 부착 |
 
-### 13-2. 트리 안에서의 흐름
+### 13-4. 트리 안에서의 흐름
 
 ```text
 Search for Enemy
@@ -1145,7 +1264,7 @@ Search for Enemy
 `TStateTreePropertyRef<FVector>`(Category `Out`) + `GetMutablePtr(Context)`. 트리 구조는 손대지 않고 태스크 한 줄만 갈아 끼우면
 `Move To`가 그대로 새 값을 읽는다.
 
-### 13-3. 설계 판단
+### 13-5. 설계 판단
 
 **순찰 진행은 태스크가 아니라 컴포넌트에.** StateTree 태스크의 인스턴스 데이터는 **상태에 들어올 때마다 새로 만들어진다** —
 나가면 버려지고 다시 들어오면 에셋 기본값이다. 처음엔 `CurrentIndex`를 태스크에 뒀다가 매번 "지점 1"만 고르는 걸 로그로 보고 알았다.
@@ -1162,9 +1281,9 @@ Search for Enemy
 실패 세 갈래(액터 없음 / 경로 없음 / 바인딩 안 됨)는 로그로 남겨 설정 실수를 바로 잡는다.
 
 **템플릿 자산 무수정.** 복제·자식 BP만. 재부모는 안 된다 — `ST_Shooter`가 `BP_ShooterNPC_C`의 BP 속성에 직접 바인딩돼 있어
-자식이 아닌 클래스가 컨텍스트에 오면 런타임에 단언으로 죽는다 (13-4).
+자식이 아닌 클래스가 컨텍스트에 오면 런타임에 단언으로 죽는다 (13-6).
 
-### 13-4. 걸렸던 것
+### 13-6. 걸렸던 것
 
 | 문제 | 원인 | 해결 |
 |---|---|---|
@@ -1177,7 +1296,7 @@ Search for Enemy
 | `APatrolRoute();56702186` | 키 입력 사고. 뒤 선언까지 연쇄 오류(`NumPoints`가 멤버가 아니다) | 숫자 삭제 |
 | 에디터를 닫았는데 `Unable to delete hot-reload file` | 프로세스가 뒤에서 종료 중 | 작업 관리자에서 `UnrealEditor.exe` 확인 |
 
-### 13-5. 이번에 쓴 API
+### 13-7. 이번에 쓴 API
 
 | | 뜻 |
 |---|---|
@@ -1191,7 +1310,7 @@ Search for Enemy
 | `DECLARE_DYNAMIC_MULTICAST_DELEGATE` + `AddDynamic` + `UFUNCTION()` 핸들러 | 템플릿 `OnPawnDeath`. 블루프린트용 델리게이트라 우리 `AddUObject`와 다르다 |
 | Create Child Blueprint Class | 템플릿 BP를 안 건드리고 설정 하나만 덮어쓰기 |
 
-### 13-6. 검증
+### 13-8. 검증
 
 수락 → 진입 → `[Warehouse] 적 등록 - 2명` → 적 둘이 각자 `지점 0 → 1 → 2 → 0 …` 순서로 걷고 점마다 멈춤 →
 플레이어를 보면 추격·사격, 놓치면 조사 후 복귀 → 다 잡으면 마지막 적 자리에 키 드롭 → 콘솔 없이 완주.
