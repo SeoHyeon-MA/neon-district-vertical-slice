@@ -1065,3 +1065,44 @@ E는 계속 들어오니 캐릭터가 `IsInDialogue()`로 분기 — `IA_Interac
 NPC E → "가져왔군" → HUD "미션 완료 — 랭크 S". 중간에 `NDKill` 넣으면 A. `ND.SetMissionStep 1`에서 말 걸면 "아직이야?"여야 한다.
 
 남은 것 (4번): 완료 후 NPC 이동, 통화 연출(카메라 — NPC 쪽에 두고 `SetViewTargetWithBlend`), 대화 중 사격 차단.
+
+### 12-9. Fixer 복귀와 완료 처리
+
+```text
+데이터칩 획득  →  AdvanceTo(ItemAcquired)  →  OnStateChanged
+                                               ├ HUD     "Fixer에게 돌아가세요"
+                                               └ 셔터    개방 (복귀 지름길)
+셔터 통과 → 대로 → Fixer
+E  →  AFixerNPC::PickStartRow
+        State == InProgress, CanComplete() == true   →  "Return_1"  ("가져왔군. 값은 약속대로")
+E  →  Advance → Effect = CompleteMission → AFixerNPC::ApplyEffect
+        → Mission->CompleteMission()
+             CanComplete() 재확인 (가드)
+             State = Completed
+             NotifyStateChanged()   → HUD "미션 완료 — 랭크 S"       ← 먼저
+             Registry->Unregister   → HUD 구독 해제, 마지막 문구 유지  ← 나중
+이후 E  →  State == Completed → "Completed_1" ("수고했어")
+```
+
+**완료 시점에 일어나는 일**
+
+| 순서 | 코드 | 결과 |
+|---|---|---|
+| 1 | `State = Completed` | `IsInProgress()` false → 픽업·문·적 카운트 전부 비활성 |
+| 2 | `NotifyStateChanged()` | HUD `Refresh` → `ANeonDistrictMainMission::GetObjectiveText` → `"미션 완료 — 랭크 {GetRank()}"` |
+| 3 | `Registry->Unregister(this)` | `OnActiveMissionsChanged(미션, false)` → HUD가 구독만 끊고 문구는 남김 |
+
+2와 3의 순서가 핵심이다. 반대면 HUD가 구독을 끊은 뒤 완료 방송이 와서 랭크를 못 본다. HUD가 해제 시 화면을 접지 않는 이유도 여기 —
+2·3이 한 호출 안에서 연달아 오니 접으면 "미션 완료"가 0프레임 만에 사라진다 (10-4).
+
+**랭크** — `ANeonDistrictMainMission::GetRank()`, 사망 횟수 `0 → S, 1 → A, 2 → B, 3+ → C`. `DeathCount`는 `StartMission`에서 0,
+`HandlePlayerDied`에서 `++`.
+
+**부활과 완료가 섞이지 않는 이유** — 죽으면 `HandlePlayerDied → SetupSegment → Step = Fighting`이라 `CanComplete()`가 false로 돌아간다.
+칩을 들고 죽으면 칩·키·셔터가 레이어 재활성화로 원상복구되고 다시 싸워야 한다. "죽으면 구간 처음부터"가 완료 조건에도 그대로 적용된다.
+
+**아직 없는 것** — 완료 후 NPC 이동(기획서 "npc 위치 옮기기", `Completed` 방송을 NPC가 구독), 종료 컷씬(8번, 같은 방송에 시퀀스 재생),
+미션 완료 창(7번, 지금은 목표 문구 한 줄이 랭크를 겸함).
+
+**검증 (9/22, 콘솔 없음)** — Fixer E → 수락 → 적 2명 처치 → 키 드롭·획득 → 문 → 칩(셔터 개방) → 셔터 통과 → Fixer E → "가져왔군" → E →
+HUD "미션 완료 — 랭크 S" + 로그 `[Mission] 완료` → 다시 E → "수고했어". 중간에 한 번 죽으면 A. 관련 커밋: `6ca09ad`, `d0ce476`, `b47be2d`.
