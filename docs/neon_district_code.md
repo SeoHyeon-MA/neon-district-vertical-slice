@@ -1217,7 +1217,7 @@ Fixer 수락 → 트리거 진입 → StartMission → SetupSegment
 옛 값 위에 쌓이지 않게. 옛 적의 구독은 옛 적 객체와 함께 사라진다.
 
 **배치 규칙.** 적·경로 전부 `DL_Mission`에 — 밖이면 미션 시작 전에 `BeginPlay`가 돌아 등록에 실패하고, 수락 전부터 보이고, 죽어도 안 돌아온다.
-`BP_NeonDistrictEnemy`는 `BP_ShooterNPC`의 **자식**(재부모 아님, 13-6). 미션 액터·트리거·부활 지점·Fixer는 레이어 **밖**.
+`BP_NeonDistrictEnemy`는 `BP_ShooterNPC`의 **자식**(재부모 아님, 13-7). 미션 액터·트리거·부활 지점·Fixer는 레이어 **밖**.
 시체는 템플릿 `DeferredDestructionTime`(5초) 뒤 자동 파괴.
 
 **걸렸던 것**
@@ -1228,7 +1228,57 @@ Fixer 수락 → 트리거 진입 → StartMission → SetupSegment
 | 키를 안 줍고 죽으면 키가 남음 | 스폰된 키는 레이어 밖 | `SetupSegment`에서 `DroppedKey` 파괴 |
 | 키 주운 뒤 프롬프트 잔류 | 파괴된 대상을 약한 포인터가 스스로 `nullptr`로 만들어 "변화 없음"으로 판정 | `IsStale()`도 변화로 (8절) |
 
-### 13-2. 순찰 — 로밍을 지정 경로로
+### 13-2. 상태 전환 — Patrol → Investigate → Attack (템플릿이 이미 하는 것)
+
+로드맵엔 Patrol → Investigate → Chase → Combat 네 상태로 적었지만, 실제 트리는 **세 상태 + 전역 감지 태스크**다.
+"Chase"는 별도 상태가 아니라 Attack 안에서 목표를 향해 이동하는 것이 곧 추격이다. 순찰만 우리가 만들었고(13-3~), 감지·조사·공격은
+템플릿 것을 `ST_Shooter` 복제본 안에서 그대로 쓴다. 로드맵 5번의 "Investigate 태스크"와 "시야/소리 자극에 따른 상태 전이"는
+새로 만들 게 아니라 확인만 하면 되는 항목이었고, 순찰 검증 때 "보면 추격·사격, 놓치면 조사 후 복귀"로 확인됐다.
+
+```text
+                 ┌──────────── Sense Enemies (전역, 항상 돎) ────────────┐
+                 │  OnSeeEnemy  /  OnInvestigateLocation  /  OnForgetEnemy │
+                 └───────┬──────────────┬──────────────────┬──────────────┘
+                         ▼              ▼                  ▼
+Search for Enemy   ──────────►  Attack Enemy  ◄────────  Investigating
+ (Patrol)          OnSeeEnemy   (Chase+Combat)  OnSeeEnemy   (Investigate)
+   ▲                              │                            ▲
+   │        OnForgetEnemy ────────┘                            │
+   └───────────────── 조사 끝, 못 찾음 ────────────────────────┘
+                     OnInvestigateLocation: Patrol → Investigating
+```
+
+| 상태 (트리 이름) | 로드맵 이름 | 안에서 하는 일 | 나가는 조건 |
+|---|---|---|---|
+| `Search for Enemy` | Patrol | `Next Patrol Point` → `Move To` → `Delay 2±1` → 반복 | `OnSeeEnemy` → Attack / `OnInvestigateLocation` → Investigating |
+| `Investigating` | Investigate | `Move to Investigate Location`(자극 위치로) → 도착 후 두리번 → 완료 | 완료 → Patrol / `OnSeeEnemy` → Attack |
+| `Attack Enemy` | Chase + Combat | 진입 조건 `Is Object Valid(TargetActor)`. 병렬로 `Face Towards Actor` + `Shoot at Target`, 자식 상태로 `Find Sniping Location`(EQS, 목표에서 500~2000cm) → `Move to Sniping Location` → `Wait` → 반복 | `OnForgetEnemy` → Patrol |
+| `Dead` | — | `Current HP <= 0`이면 최우선. `Delay 1`, 트리 종료 | — |
+
+**Chase가 따로 없는 이유.** `Find Sniping Location`이 "목표로부터 Min~Max 거리의 사격 위치"를 EQS로 고르고 거기로 걷는다.
+목표가 멀면 다가가고 가까우면 거리를 벌린다. 걷는 동안에도 `Shoot at Target`이 병렬로 돌아 쏘면서 이동한다.
+따로 나누면 오히려 "쫓는 동안은 안 쏨"이 된다.
+
+**전환을 일으키는 것 — `Sense Enemies` 전역 태스크.** `AIPerception`(시야·청각) 자극이 `AShooterAIController::OnShooterPerceptionUpdated`
+→ `FStateTreeSenseEnemiesTask`로 넘어오고, 태스크가 자극의 종류에 따라 세 델리게이트 중 하나를 방송한다. 상태 전환은 이 델리게이트를 트리거로 걸려 있다.
+
+| 자극 | 판정 | 방송 | 결과 |
+|---|---|---|---|
+| `Player` 태그 액터를 **직접 봄** — 정면 85° 콘 안 + 라인 트레이스 무차단 | `bDirectLOS == true` | `OnSeeEnemy` + `TargetActor` 설정 | → Attack |
+| 봤지만 콘 밖 / 가려짐, 또는 소리 | 부분 감지. 이미 목표가 있으면 무시 | `OnInvestigateLocation` + `InvestigateLocation` = 자극 위치 | → Investigating |
+| 자극이 `Max Age` 넘게 안 옴 | `OnPerceptionForgotten` | `OnForgetEnemy` + 목표 해제 | → Patrol |
+
+부분 감지는 강도가 시간에 따라 감쇠한 이전 자극보다 클 때만 새 조사를 시작한다 (`ScaledStimulus = LastStrength / max(경과, 1)`).
+발소리 하나하나에 매번 반응하지 않게 하는 장치.
+
+**조정할 수 있는 손잡이 (필요해지면).** 감지 범위·각도는 `BP_NeonDistrictAIController`의 `AIPerception` Sight 설정 덮어쓰기(골목이 좁으니 거리는 줄이고
+각도는 넓히는 쪽). 놓친 뒤 기억 시간은 Sight `Max Age`. 교전 거리는 트리 파라미터 `SnipingMinDistance / MaxDistance`(500 / 2000, 실내는 줄여야 함).
+순찰 대기는 `Idle at Roam Location`의 Delay. 템플릿 총성이 Hearing 자극을 내는지는 아직 확인 안 함 — 안 나면 `UAISense_Hearing::ReportNoiseEvent`를
+무기 발사에 걸어야 소리로도 Investigate가 시작된다.
+
+관련: 템플릿 `ShooterStateTreeUtility.h/.cpp`(`FStateTreeSenseEnemiesTask`, `FStateTreeLineOfSightToTargetCondition`, `FStateTreeShootAtTargetTask`), `ShooterAIController.h`.
+
+### 13-3. 순찰 — 로밍을 지정 경로로
 
 템플릿 적은 EQS로 임의 지점을 골라 돌아다닌다(로밍). 우리는 지정 경로를 순서대로 돌게 바꾼다.
 바뀌는 건 "지점을 고르는 태스크" 하나이고, 이동·대기·조사·추격·전투는 템플릿 트리를 그대로 쓴다.
@@ -1239,7 +1289,7 @@ Fixer 수락 → 트리거 진입 → StartMission → SetupSegment
 우리:    Patrol(지정 경로)     → Investigate → Attack       ← 첫 칸만 교체
 ```
 
-### 13-3. 조각별 역할
+### 13-4. 조각별 역할
 
 | 조각 | 역할 |
 |---|---|
@@ -1250,7 +1300,7 @@ Fixer 수락 → 트리거 진입 → StartMission → SetupSegment
 | `BP_NeonDistrictAIController` | `BP_ShooterAIController` 자식. StateTreeAI 컴포넌트의 트리만 우리 것 |
 | `BP_NeonDistrictEnemy` | `BP_ShooterNPC` 자식. AI Controller Class를 우리 컨트롤러로. `Mission Enemy` 컴포넌트 부착 |
 
-### 13-4. 트리 안에서의 흐름
+### 13-5. 트리 안에서의 흐름
 
 ```text
 Search for Enemy
@@ -1264,7 +1314,7 @@ Search for Enemy
 `TStateTreePropertyRef<FVector>`(Category `Out`) + `GetMutablePtr(Context)`. 트리 구조는 손대지 않고 태스크 한 줄만 갈아 끼우면
 `Move To`가 그대로 새 값을 읽는다.
 
-### 13-5. 설계 판단
+### 13-6. 설계 판단
 
 **순찰 진행은 태스크가 아니라 컴포넌트에.** StateTree 태스크의 인스턴스 데이터는 **상태에 들어올 때마다 새로 만들어진다** —
 나가면 버려지고 다시 들어오면 에셋 기본값이다. 처음엔 `CurrentIndex`를 태스크에 뒀다가 매번 "지점 1"만 고르는 걸 로그로 보고 알았다.
@@ -1281,9 +1331,9 @@ Search for Enemy
 실패 세 갈래(액터 없음 / 경로 없음 / 바인딩 안 됨)는 로그로 남겨 설정 실수를 바로 잡는다.
 
 **템플릿 자산 무수정.** 복제·자식 BP만. 재부모는 안 된다 — `ST_Shooter`가 `BP_ShooterNPC_C`의 BP 속성에 직접 바인딩돼 있어
-자식이 아닌 클래스가 컨텍스트에 오면 런타임에 단언으로 죽는다 (13-6).
+자식이 아닌 클래스가 컨텍스트에 오면 런타임에 단언으로 죽는다 (13-7).
 
-### 13-6. 걸렸던 것
+### 13-7. 걸렸던 것
 
 | 문제 | 원인 | 해결 |
 |---|---|---|
@@ -1296,7 +1346,7 @@ Search for Enemy
 | `APatrolRoute();56702186` | 키 입력 사고. 뒤 선언까지 연쇄 오류(`NumPoints`가 멤버가 아니다) | 숫자 삭제 |
 | 에디터를 닫았는데 `Unable to delete hot-reload file` | 프로세스가 뒤에서 종료 중 | 작업 관리자에서 `UnrealEditor.exe` 확인 |
 
-### 13-7. 이번에 쓴 API
+### 13-8. 이번에 쓴 API
 
 | | 뜻 |
 |---|---|
@@ -1310,7 +1360,7 @@ Search for Enemy
 | `DECLARE_DYNAMIC_MULTICAST_DELEGATE` + `AddDynamic` + `UFUNCTION()` 핸들러 | 템플릿 `OnPawnDeath`. 블루프린트용 델리게이트라 우리 `AddUObject`와 다르다 |
 | Create Child Blueprint Class | 템플릿 BP를 안 건드리고 설정 하나만 덮어쓰기 |
 
-### 13-8. 검증
+### 13-9. 검증
 
 수락 → 진입 → `[Warehouse] 적 등록 - 2명` → 적 둘이 각자 `지점 0 → 1 → 2 → 0 …` 순서로 걷고 점마다 멈춤 →
 플레이어를 보면 추격·사격, 놓치면 조사 후 복귀 → 다 잡으면 마지막 적 자리에 키 드롭 → 콘솔 없이 완주.
