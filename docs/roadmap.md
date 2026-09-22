@@ -152,7 +152,7 @@ ANeonDistrictMission (abstract, 공통 뼈대)
   virtual GetObjectiveText()    virtual SetupSegment()    OnStateChanged 방송
 
   └─ AWarehouseMission (이번 슬라이스)
-       EStep { Fighting → KeyDropped → ItemAcquired → Returning }
+       EStep { Fighting → KeyDropped → KeyAcquired → ItemAcquired }   (9/18: Returning 제거, KeyAcquired 추가)
        GetObjectiveText() override — Step별 문구
        SetupSegment() override — 적 정리·생성, Step = Fighting, 키·창고 원상복구
 

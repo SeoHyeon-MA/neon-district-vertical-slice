@@ -953,7 +953,7 @@ t=6.15  cube=StaticMeshActor_..._1920928583  loc=X=-5471          ← 같은 객
 | `WBP_Dialogue` | `SpeakerText` · `LineText`, `Update Line` 이벤트 |
 | `ANeonDistrictPlayerController` | 위젯 소유(한 번 만들어 재사용), `StartDialogue` / `AdvanceDialogue` / `IsInDialogue`, `SetIgnoreMoveInput` / `SetIgnoreLookInput` 잠금·복구 |
 | `ANeonDistrictCharacter::DoInteract` | 대화 중이면 E = 다음 줄, 아니면 E = 상호작용 |
-| `ANeonDistrictMission::CanComplete()` | virtual, 기본 false. 창고는 `InProgress && Returning`. 대사 선택과 `CompleteMission()` 가드 양쪽에서 쓴다 |
+| `ANeonDistrictMission::CanComplete()` | virtual, 기본 false. 창고는 `InProgress && Step == ItemAcquired`(처음엔 `Returning`, `7531d99`에서 단계 재편). 대사 선택과 `CompleteMission()` 가드 양쪽에서 쓴다 |
 
 ### 12-3. 수락 — E 한 번이 HUD까지 닿는 경로
 
@@ -989,7 +989,7 @@ NPC는 미션에게 두 가지만 묻는다 — `GetState()`와 `CanComplete()`.
 |---|---|---|---|---|
 | `NotAccepted` | — | `Intro_1` → `Intro_2` → `Intro_3` | 의뢰 → "알았어" | `AcceptMission` |
 | `Accepted` / `InProgress` | false | `InProgress_1` | "아직이야? 서둘러" | — |
-| `InProgress` | **true** (Returning) | `Return_1` | "가져왔군. 값은 약속대로" | `CompleteMission` |
+| `InProgress` | **true** (`ItemAcquired`) | `Return_1` | "가져왔군. 값은 약속대로" | `CompleteMission` |
 | `Completed` | — | `Completed_1` | "수고했어" | — |
 
 ```cpp
@@ -1005,7 +1005,7 @@ FName AFixerNPC::PickStartRow() const
 ```
 
 **분기의 두 층.** 1층은 미션 공통 상태(`EMissionState`)라 `switch`로 직접 본다. 2층 "아이템을 들고 왔나"는 창고 미션의
-`Step == Returning`이지만 NPC는 그걸 모른다 — 미션에 virtual 질의 `CanComplete()`를 두고 자식이 답한다.
+`Step == ItemAcquired`이지만 NPC는 그걸 모른다 — 미션에 virtual 질의 `CanComplete()`를 두고 자식이 답한다.
 다른 미션이 오면 그 미션이 자기 조건으로 답하고 NPC 코드는 그대로다. "소비자는 미션 내부를 모른다"(7절)의 연장.
 
 **`CanComplete()`가 두 곳에서 쓰이는 이유.** `PickStartRow`(Return_1을 고를지)와 `CompleteMission()`(실행할지, false면 return)이
