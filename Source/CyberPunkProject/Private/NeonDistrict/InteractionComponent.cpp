@@ -53,8 +53,8 @@ void UInteractionComponent::UpdateTarget()
 	{
 		NewTarget = Hit.GetActor();
 	}
-	// 바뀌었을 떄만 방송
-	if (NewTarget != CurrentTarget.Get())
+	// 바뀌었을 떄만 방송. (대상이 파괴된 경우도 "바뀐 것"으로 처리)
+	if (CurrentTarget.IsStale() || NewTarget != CurrentTarget.Get())
 	{
 		CurrentTarget = NewTarget;
 		OnTargetChanged.Broadcast(NewTarget);

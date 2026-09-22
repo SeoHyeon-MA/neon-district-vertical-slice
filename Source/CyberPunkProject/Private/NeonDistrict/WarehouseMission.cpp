@@ -2,10 +2,12 @@
 
 
 #include "NeonDistrict/WarehouseMission.h"
+#include "NeonDistrict/MissionRegistry.h"
+#include "NeonDistrict/WarehousePickup.h"
 #include "HAL/IConsoleManager.h"
 #include "EngineUtils.h"
-#include "MissionRegistry.h"
 #include "Engine/World.h"
+#include "Variant_Shooter/AI/ShooterNPC.h"
 
 void AWarehouseMission::SetupSegment()
 {
@@ -13,6 +15,12 @@ void AWarehouseMission::SetupSegment()
 	
 	//구간을 처음 상태로 되돌린다
 	Step = EWarehouseStep::Fighting;
+	
+	AliveEnemies = 0;
+	if (DroppedKey.IsValid())
+	{
+		DroppedKey->Destroy();
+	}
 	
 	//다음 단계에서 여기에 적 정리/생성, 키/창고 원상복구가 들어간다
 	UE_LOG(LogTemp, Warning, TEXT("[Warehouse] 구간 세팅 - 적 배치 예정"));
@@ -30,6 +38,15 @@ void AWarehouseMission::AdvanceTo(EWarehouseStep NewStep)
 		*GetObjectiveText().ToString());
 	
 	NotifyStateChanged();
+}
+
+void AWarehouseMission::RegisterEnemy(AShooterNPC* Enemy)
+{
+	if (!Enemy) return;
+	
+	++AliveEnemies;
+	Enemy->OnPawnDeath.AddDynamic(this, &AWarehouseMission::HandleEnemyDied);
+	UE_LOG(LogTemp, Warning, TEXT("[Warehouse] 적 등록 - %d명"), AliveEnemies);
 }
 
 FText AWarehouseMission::GetObjectiveText() const
@@ -61,6 +78,38 @@ AWarehouseMission* AWarehouseMission::FindActive(const UObject* WorldContext)
 	const UWorld* World = WorldContext ? WorldContext->GetWorld() : nullptr;
 	UMissionRegistry* Registry = World ? World->GetSubsystem<UMissionRegistry>() : nullptr;
 	return Registry ? Cast<AWarehouseMission>(Registry->GetActiveMission(EMissionCategory::Main)) : nullptr;
+}
+
+void AWarehouseMission::HandleEnemyDied()
+{
+	if (!IsInProgress() || Step != EWarehouseStep::Fighting) return;
+	
+	--AliveEnemies;
+	UE_LOG(LogTemp, Warning, TEXT("[Warehouse] 적 사망 - 남은 %d명"), AliveEnemies);
+	
+	if (AliveEnemies <= 0)
+	{
+		// 마지막이 적이 어디서 죽었는지는 델리게이트가 안 알려준다. 죽은 적을 찾는다
+		FVector DropLocation = GetActorLocation();
+		for (TActorIterator<AShooterNPC> It(GetWorld()); It; ++It)
+		{
+			if (It->ActorHasTag(TEXT("Dead")))
+			{
+				DropLocation = It->GetActorLocation();
+			}
+		}
+		DropKey(DropLocation);
+		AdvanceTo(EWarehouseStep::KeyDropped);
+	}
+}
+
+void AWarehouseMission::DropKey(const FVector& Location)
+{
+	if (!KeyClass) return;
+	
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	DroppedKey = GetWorld()->SpawnActor<AWarehousePickup>(KeyClass, Location, FRotator::ZeroRotator, Params);
 }
 
 //####################################디버그 설정################################
@@ -102,7 +151,7 @@ static void NDMissionStatus(UWorld* World)
 			*It->GetName(),
 			*UEnum::GetValueAsString(It->GetState()),
 			static_cast<int32>(It->GetStep()),
-			*UEnum::GetValueAsString(It->GetState()),
+			*UEnum::GetValueAsString(It->GetStep()),
 			It->GetDeathCount(),
 			*It->GetObjectiveText().ToString()
 			);
