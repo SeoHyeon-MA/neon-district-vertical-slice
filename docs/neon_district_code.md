@@ -1106,3 +1106,92 @@ E  →  Advance → Effect = CompleteMission → AFixerNPC::ApplyEffect
 
 **검증 (9/22, 콘솔 없음)** — Fixer E → 수락 → 적 2명 처치 → 키 드롭·획득 → 문 → 칩(셔터 개방) → 셔터 통과 → Fixer E → "가져왔군" → E →
 HUD "미션 완료 — 랭크 S" + 로그 `[Mission] 완료` → 다시 E → "수고했어". 중간에 한 번 죽으면 A. 관련 커밋: `6ca09ad`, `d0ce476`, `b47be2d`.
+
+---
+
+## 13. 순찰 경로 — 로밍을 지정 경로로
+
+로드맵 5번. 템플릿 적은 EQS로 임의 지점을 골라 돌아다닌다(로밍). 우리는 지정 경로를 순서대로 돌게 바꾼다.
+바뀌는 건 "지점을 고르는 태스크" 하나이고, 이동·대기·조사·추격·전투는 템플릿 트리를 그대로 쓴다.
+관련 커밋: `b47be2d`(적 배치·키 드롭), `5f19453`(순찰). 배치 절차는 `docs/enemy_placement.md`.
+
+```text
+템플릿:  Roam(EQS 임의 지점)  → Investigate → Attack
+우리:    Patrol(지정 경로)     → Investigate → Attack       ← 첫 칸만 교체
+```
+
+### 13-1. 조각별 역할
+
+| 조각 | 역할 |
+|---|---|
+| `APatrolRoute` | 점 배열(액터 기준 상대 좌표, `MakeEditWidget`으로 뷰포트에서 끌기), `bLoop`. `GetPointWorld` / `NextIndex`(순환·왕복) / `NearestIndex`. **상태 없음** — 여러 적이 공유 |
+| `UMissionEnemyComponent` | 적에 붙는 컴포넌트. `PatrolRoute` 참조(인스턴스 지정) + 순찰 진행 `PatrolIndex` · `PatrolDirection` + 미션 등록 |
+| `FStateTreeNextPatrolPointTask` | C++ StateTree 태스크. 컨텍스트 액터 → 컴포넌트 → 경로. 다음 점을 골라 트리 파라미터 `TargetMovement_Location`에 써 넣고 즉시 `Succeeded` |
+| `ST_NeonDistrictEnemy` | `ST_Shooter` 복제본. `Find Roam Location` 상태의 EQS 태스크만 우리 태스크로 교체 |
+| `BP_NeonDistrictAIController` | `BP_ShooterAIController` 자식. StateTreeAI 컴포넌트의 트리만 우리 것 |
+| `BP_NeonDistrictEnemy` | `BP_ShooterNPC` 자식. AI Controller Class를 우리 컨트롤러로. `Mission Enemy` 컴포넌트 부착 |
+
+### 13-2. 트리 안에서의 흐름
+
+```text
+Search for Enemy
+ ├ Find Roam Location     Next Patrol Point → Parameters.TargetMovement_Location    (성공 → 다음 / 실패 → Idle)
+ ├ Move to Roam Location  Move To ← Parameters.TargetMovement_Location
+ └ Idle at Roam Location  Delay 2±1 → Root → 다시 처음
+```
+
+템플릿은 세 상태가 **트리 파라미터**로 값을 주고받는다 — 상태가 다르면 서로의 태스크에 직접 바인딩할 수 없어서다.
+그래서 우리 태스크도 값을 "내놓는" 게 아니라 EQS 태스크와 같은 형식으로 파라미터에 **쓴다**:
+`TStateTreePropertyRef<FVector>`(Category `Out`) + `GetMutablePtr(Context)`. 트리 구조는 손대지 않고 태스크 한 줄만 갈아 끼우면
+`Move To`가 그대로 새 값을 읽는다.
+
+### 13-3. 설계 판단
+
+**순찰 진행은 태스크가 아니라 컴포넌트에.** StateTree 태스크의 인스턴스 데이터는 **상태에 들어올 때마다 새로 만들어진다** —
+나가면 버려지고 다시 들어오면 에셋 기본값이다. 처음엔 `CurrentIndex`를 태스크에 뒀다가 매번 "지점 1"만 고르는 걸 로그로 보고 알았다.
+"다음이 어디냐"는 적 자신의 기억이라 컴포넌트가 든다. 죽어서 재생성되면 컴포넌트도 새로 생겨 `-1`로 돌아오니 레이어 리셋과 같이 간다.
+
+**경로도 컴포넌트가 든다.** 트리의 Context Actor Class는 `BP_ShooterNPC`라 우리 BP에 변수를 만들어도 트리가 못 본다.
+태스크가 컨텍스트 액터에서 `FindComponentByClass`로 컴포넌트를 찾아 읽으면 트리·템플릿 BP를 안 건드린다.
+
+**첫 진입은 가장 가까운 점부터.** 같은 경로를 도는 적 둘이 모두 0번으로 가면 한 점에 몰린다. `PatrolIndex < 0`이면 `NearestIndex`.
+
+**경로 액터는 상태가 없다.** 적 여럿이 한 경로를 다른 위치·방향에서 돌 수 있어야 하니, "몇 번째·어느 방향"은 적 쪽이다.
+
+**경로가 없으면 `Failed`.** 트리의 실패 전환(→ Idle)으로 빠져 트리가 멈추지 않는다.
+실패 세 갈래(액터 없음 / 경로 없음 / 바인딩 안 됨)는 로그로 남겨 설정 실수를 바로 잡는다.
+
+**템플릿 자산 무수정.** 복제·자식 BP만. 재부모는 안 된다 — `ST_Shooter`가 `BP_ShooterNPC_C`의 BP 속성에 직접 바인딩돼 있어
+자식이 아닌 클래스가 컨텍스트에 오면 런타임에 단언으로 죽는다 (13-4).
+
+### 13-4. 걸렸던 것
+
+| 문제 | 원인 | 해결 |
+|---|---|---|
+| 적 BP를 재부모했더니 크래시 `PropertyBindingBindingCollection.cpp:1273` | 트리 바인딩이 `BP_ShooterNPC_C` 속성을 참조. 자식이 아니면 `IsChildOf` 단언. 컴파일은 통과하고 런타임에 터진다 | C++ 서브클래스 대신 **컴포넌트** + Child Blueprint |
+| Context Actor Class 드롭다운에 `ShooterNPC` 없음 | 클래스 선택창이 `abstract` 클래스를 숨김 (`AllowAbstract` 메타 없으면) | 컨텍스트 클래스는 `BP_ShooterNPC` 그대로 두고 자식으로 통과 |
+| 링크 오류 `FPropertyBindingBindingCollection::GetAddress` | 프로퍼티 참조 **쓰기**가 `PropertyBindingUtils` 모듈 필요 (템플릿은 읽기만) | `Build.cs`에 추가 |
+| 매번 "지점 1" | 태스크 인스턴스 데이터가 상태 진입마다 초기화 | 진행을 컴포넌트로 이동 |
+| `경로 없음(컴포넌트 없음)` — 컴포넌트가 분명 있는데 | 에디터 켠 채 빌드 → 컴포넌트 클래스 재생성 → 기존 인스턴스는 옛 클래스. `FindComponentByClass`가 새 클래스로 검사해 못 찾음 | 에디터 끄고 번호 DLL 정리 후 빌드 |
+| 점이 `X=5280` — 2초마다 제자리 | NavMesh 밖이면 Move To 즉시 실패 → Idle 반복 | `P` 키로 확인, 경로를 초록 위로 |
+| `APatrolRoute();56702186` | 키 입력 사고. 뒤 선언까지 연쇄 오류(`NumPoints`가 멤버가 아니다) | 숫자 삭제 |
+| 에디터를 닫았는데 `Unable to delete hot-reload file` | 프로세스가 뒤에서 종료 중 | 작업 관리자에서 `UnrealEditor.exe` 확인 |
+
+### 13-5. 이번에 쓴 API
+
+| | 뜻 |
+|---|---|
+| `meta = (MakeEditWidget)` | `FVector`(배열)에 뷰포트 드래그 위젯 |
+| `FStateTreeTaskCommonBase` + 인스턴스 데이터 `USTRUCT` | C++ StateTree 태스크의 두 구조체. `GetInstanceDataType`으로 연결 |
+| `Category = Context` / `Out` | 컨텍스트 자동 바인딩 / 쓸 곳을 바인딩으로 받는 출력 |
+| `TStateTreePropertyRef<T>` + `GetMutablePtr(Context)` | 바인딩된 프로퍼티(트리 파라미터)에 쓰기 |
+| `bShouldCallTick = false` | 진입 시 한 번만 일하는 태스크 |
+| `EStateTreeRunStatus::Succeeded / Failed` | 상태 전환 트리거 |
+| `Transient` | 런타임 상태. 저장 안 됨 |
+| `DECLARE_DYNAMIC_MULTICAST_DELEGATE` + `AddDynamic` + `UFUNCTION()` 핸들러 | 템플릿 `OnPawnDeath`. 블루프린트용 델리게이트라 우리 `AddUObject`와 다르다 |
+| Create Child Blueprint Class | 템플릿 BP를 안 건드리고 설정 하나만 덮어쓰기 |
+
+### 13-6. 검증
+
+수락 → 진입 → `[Warehouse] 적 등록 - 2명` → 적 둘이 각자 `지점 0 → 1 → 2 → 0 …` 순서로 걷고 점마다 멈춤 →
+플레이어를 보면 추격·사격, 놓치면 조사 후 복귀 → 다 잡으면 마지막 적 자리에 키 드롭 → 콘솔 없이 완주.
