@@ -6,6 +6,9 @@
 #include "NeonDistrict/DialogueWidget.h"
 #include "NeonDistrict/InteractionPromptWidget.h"
 #include "NeonDistrict/InteractionComponent.h"
+#include "EnhancedInputSubsystems.h"
+#include "InputMappingContext.h"
+#include "Variant_Shooter/ShooterCharacter.h"
 
 void ANeonDistrictPlayerController::BeginPlay()
 {
@@ -76,6 +79,19 @@ UDialogueWidget* ANeonDistrictPlayerController::StartDialogue(UDataTable* Table,
 	SetIgnoreMoveInput(true);
 	SetIgnoreLookInput(true);
 	
+	// 대화 중엔 무기 입력을 끊는다. 누르고 있던 사격도 멈춘다
+	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
+	{
+		for (UInputMappingContext* Ctx : DialogueBlockedContexts)
+		{
+			Subsystem->RemoveMappingContext(Ctx);
+		}
+	}
+	if (AShooterCharacter* ShooterPawn = GetPawn<AShooterCharacter>())
+	{
+		ShooterPawn->DoStopFiring();
+	}
+	
 	Dialogue->Start(Table, StartRow);
 	return Dialogue;
 }
@@ -92,4 +108,12 @@ void ANeonDistrictPlayerController::HandleDialogueFinished()
 {
 	SetIgnoreMoveInput(false);
 	SetIgnoreLookInput(false);
+	
+	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
+	{
+		for (UInputMappingContext* Ctx : DialogueBlockedContexts)
+		{
+			Subsystem->AddMappingContext(Ctx, 0);
+		}
+	}
 }
