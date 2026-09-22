@@ -17,6 +17,7 @@ public class CyberPunkProject : ModuleRules
 			"AIModule",
 			"StateTreeModule",
 			"GameplayStateTreeModule",
+			"PropertyBindingUtils",
 			"UMG",
 			"Slate"
 		});

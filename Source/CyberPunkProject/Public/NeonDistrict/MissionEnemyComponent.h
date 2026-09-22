@@ -6,6 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "MissionEnemyComponent.generated.h"
 
+class APatrolRoute;
 /*
  * 창고 구간의 적에 붙인다. 생기면 진행 중인 창고 미션에 주인(AShooterNPC)을 등록한다
  */
@@ -13,6 +14,18 @@ UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class CYBERPUNKPROJECT_API UMissionEnemyComponent : public UActorComponent
 {
 	GENERATED_BODY()
+	
+public:
+	// 이 적이 도는 경로. 레벨에서 지정. 없으면 제자리
+	UPROPERTY(EditInstanceOnly, Category= "Neon District")
+	TObjectPtr<APatrolRoute> PatrolRoute;
+	
+	// 순찰 진행. 태스크가 읽고 쓴다. 상태 인스턴스 데이터는 상태를 나가면 사라지므로 여기 둔다
+	UPROPERTY(VisibleInstanceOnly, Transient, Category="Neon District")
+	int32 PatrolIndex = -1;
+	
+	UPROPERTY(Transient)
+	int32 PatrolDirection = 1;
 	
 protected:
 	//~ Begin UActorComponent Interface
