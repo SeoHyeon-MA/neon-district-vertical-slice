@@ -7,6 +7,7 @@
 #include "NeonDistrict/InteractionPromptWidget.h"
 #include "NeonDistrict/InteractionComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "HealthBarWidget.h"
 #include "InputMappingContext.h"
 #include "Variant_Shooter/ShooterCharacter.h"
 
@@ -26,6 +27,20 @@ void ANeonDistrictPlayerController::BeginPlay()
 	else
 	{
 		UE_LOG(LogTemp, Error, TEXT("[NeonDistrict] 목표 위젯 생성 실패"));
+	}
+	
+	// 체력 바 위젯
+	HealthBar = CreateWidget<UHealthBarWidget>(this, HealthBarWidgetClass);
+	if (HealthBar)
+	{
+		HealthBar->AddToPlayerScreen(0);
+		// 첫 스폰에서는 OnPossess가 BeginPlay보다 먼저 올 수 있다. 이미 폰이 있으면 지금 묶는다
+		HealthBar->BindToCharacter(GetPawn<AShooterCharacter>());
+		
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("[NeonDistrict] 체력 바 위젯 생성 실패"));
 	}
 	
 	// 상호작용 프롬포트
@@ -54,6 +69,10 @@ void ANeonDistrictPlayerController::OnPossess(APawn* InPawn)
 	if (InteractionPrompt)
 	{
 		InteractionPrompt->BindToComponent(InPawn ? InPawn->FindComponentByClass<UInteractionComponent>() : nullptr);
+	}
+	if (HealthBar)
+	{
+		HealthBar->BindToCharacter(Cast<AShooterCharacter>(InPawn));
 	}
 }
 

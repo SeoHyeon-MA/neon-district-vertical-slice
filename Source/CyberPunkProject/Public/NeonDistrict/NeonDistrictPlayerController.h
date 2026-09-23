@@ -10,6 +10,7 @@ class UInteractionPromptWidget;
 class UMissionObjectiveWidget;
 class UDialogueWidget;
 class UDataTable;
+class UHealthBarWidget;
 
 /**
  * Neon District 플레이어 컨트롤러. 폰이 바뀌어도 살아남는 HUD를 소유한다
@@ -36,8 +37,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="Neon District|UI")
 	TSubclassOf<UDialogueWidget> DialogueClass;
 	
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|UI")
+	TSubclassOf<UHealthBarWidget> HealthBarWidgetClass;
+	
 	UPROPERTY()
 	TObjectPtr<UDialogueWidget> Dialogue;
+	
+	UPROPERTY()
+	TObjectPtr<UHealthBarWidget> HealthBar;
 	
 	// 대화 중에 뺄 매핑 컨텍스트. IMC_Weapons 등
 	UPROPERTY(EditDefaultsOnly, Category= "Neon District|Dialogue")
