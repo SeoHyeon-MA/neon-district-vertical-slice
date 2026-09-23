@@ -5,6 +5,7 @@
 
 #include "DialogueWidget.h"
 #include "NeonDistrictPlayerController.h"
+#include "Camera/CameraComponent.h"
 #include "NeonDistrict/NeonDistrictMission.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -30,6 +31,12 @@ AFixerNPC::AFixerNPC()
 	Mesh->SetRelativeLocation(FVector(0.0f, 0.0f, -88.0f));
 	Mesh->SetRelativeRotation(FRotator(0.0f, -90.0f, 0.0f));
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	DialogueCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("DialogueCamera"));
+	DialogueCamera->SetupAttachment(Capsule);
+	// NPC 앞 2m, 눈높이에서 NPC를 바라본다. 인스턴스에서 조정
+	DialogueCamera->SetRelativeLocation(FVector(200.f, 0.f, 60.f));
+	DialogueCamera->SetRelativeRotation(FRotator(0.f, 180.f, 0.f));
 }
 
 FText AFixerNPC::GetInteractionPrompt() const
@@ -50,7 +57,7 @@ void AFixerNPC::Interact(APawn* InteractingPawn)
 	nullptr;
 	if (!PC) return;
 	
-	if (UDialogueWidget* Dialogue = PC->StartDialogue(DialogueTable, PickStartRow()))
+	if (UDialogueWidget* Dialogue = PC->StartDialogue(DialogueTable, PickStartRow(), this))
 	{
 		Dialogue->OnEffect.BindUObject(this, &AFixerNPC::ApplyEffect);
 	}

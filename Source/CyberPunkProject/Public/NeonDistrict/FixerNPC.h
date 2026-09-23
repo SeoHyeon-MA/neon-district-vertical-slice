@@ -8,6 +8,7 @@
 #include "NeonDistrict/MissionDialogueTypes.h"
 #include "FixerNPC.generated.h"
 
+class UCameraComponent;
 class ANeonDistrictMission;
 class UCapsuleComponent;
 class UDataTable;
@@ -26,6 +27,10 @@ class CYBERPUNKPROJECT_API AFixerNPC : public AActor, public IInteractable
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category= "Components", meta=(AllowPrivateAccess="true"))
 	USkeletalMeshComponent* Mesh;
 
+	// 대화 중 화면을 잡는 카메라. 뷰포트에서 각도를 맞춘다
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta=(AllowPrivateAccess="true"))
+	UCameraComponent* DialogueCamera;
+	
 protected:
 	// 이 NPC가 주는 미션, 레벨에서 지정
 	UPROPERTY(EditInstanceOnly, Category="Neon District")
@@ -52,6 +57,9 @@ public:
 	// Sets default values for this actor's properties
 	AFixerNPC();
 
+	// 대화 중 쓸 카메라. 없으면 화면을 바꾸지 않는다
+	UCameraComponent* GetDialogueCamera() const { return DialogueCamera; }
+	
 	//~ Begin IInteractable Interface
 	virtual FText GetInteractionPrompt() const override;
 	virtual bool CanInteract(APawn* InteractingPawn) const override;

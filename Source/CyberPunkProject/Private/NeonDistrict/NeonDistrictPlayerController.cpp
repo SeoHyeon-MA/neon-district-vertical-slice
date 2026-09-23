@@ -62,7 +62,7 @@ bool ANeonDistrictPlayerController::IsInDialogue() const
 	return Dialogue && Dialogue->IsActive();
 }
 
-UDialogueWidget* ANeonDistrictPlayerController::StartDialogue(UDataTable* Table, FName StartRow)
+UDialogueWidget* ANeonDistrictPlayerController::StartDialogue(UDataTable* Table, FName StartRow, AActor* ViewTarget)
 {
 	if (!DialogueClass || IsInDialogue()) return nullptr;
 	
@@ -92,6 +92,12 @@ UDialogueWidget* ANeonDistrictPlayerController::StartDialogue(UDataTable* Table,
 		ShooterPawn->DoStopFiring();
 	}
 	
+	// 대화 상대가 카메라를 주면 그쪽으로. 없으면 화면은 그대로
+	if (ViewTarget)
+	{
+		SetViewTargetWithBlend(ViewTarget, DialogueCameraBlendTime, VTBlend_EaseInOut, 2.f);
+	}
+	
 	Dialogue->Start(Table, StartRow);
 	return Dialogue;
 }
@@ -115,5 +121,11 @@ void ANeonDistrictPlayerController::HandleDialogueFinished()
 		{
 			Subsystem->AddMappingContext(Ctx, 0);
 		}
+	}
+	
+	// 폰으로 복귀(카메라)
+	if (APawn* MyPawn = GetPawn())
+	{
+		SetViewTargetWithBlend(MyPawn, DialogueCameraBlendTime, VTBlend_EaseInOut, 2.f);
 	}
 }

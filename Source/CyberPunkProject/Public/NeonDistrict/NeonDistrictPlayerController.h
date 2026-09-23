@@ -43,11 +43,15 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category= "Neon District|Dialogue")
 	TArray<TObjectPtr<UInputMappingContext>> DialogueBlockedContexts;
 	
+	// 대화 카메라로 넘어가고 돌아오는 시간 (초)
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|Dialogue")
+	float DialogueCameraBlendTime = 0.6f;
+	
 public:
 	bool IsInDialogue() const;
 	
 	//대화를 열고 위젯을 돌려준다. 부른 쪽이 OnEffect를 묶는다
-	UDialogueWidget* StartDialogue(UDataTable* Table, FName StartRow);
+	UDialogueWidget* StartDialogue(UDataTable* Table, FName StartRow, AActor* ViewTarget = nullptr);
 	
 	void AdvanceDialogue();
 	
