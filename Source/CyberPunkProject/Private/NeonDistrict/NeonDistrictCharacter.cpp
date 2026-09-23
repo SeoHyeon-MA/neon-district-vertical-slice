@@ -8,6 +8,7 @@
 #include "GameFramework/Controller.h"
 #include "Engine/DamageEvents.h"
 #include "EnhancedInputComponent.h"
+#include "Camera/CameraComponent.h"
 
 
 ANeonDistrictCharacter::ANeonDistrictCharacter()
@@ -15,10 +16,52 @@ ANeonDistrictCharacter::ANeonDistrictCharacter()
 	InteractionComponent = CreateDefaultSubobject<UInteractionComponent>(TEXT("Interaction"));
 }
 
+void ANeonDistrictCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	// 조준 해제 시 돌아갈 시야각을 기억한다
+	if (UCameraComponent* Camera = GetFirstPersonCameraComponent())
+	{
+		DefaultFOV = Camera->FieldOfView;
+	}
+}
+
+void ANeonDistrictCharacter::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	UCameraComponent* Camera = GetFirstPersonCameraComponent();
+	if (!Camera || DefaultFOV <= 0.f) return;
+	
+	const float TargetFOV = bIsAiming ? AimFOV : DefaultFOV;
+	if (FMath::IsNearlyEqual(Camera->FieldOfView, TargetFOV, 0.05f)) return;
+	
+	Camera->SetFieldOfView(FMath::FInterpTo(Camera->FieldOfView, TargetFOV, DeltaSeconds, AimBlendSpeed));
+}
+
+void ANeonDistrictCharacter::DoStartAiming()
+{
+	if (bIsAiming) return;
+	
+	bIsAiming = true;
+	OnAimingChanged.Broadcast(true);
+}
+
+void ANeonDistrictCharacter::DoStopAiming()
+{
+	if (!bIsAiming) return;
+	
+	bIsAiming = false;
+	OnAimingChanged.Broadcast(false);
+}
+
 void ANeonDistrictCharacter::Die()
 {
 	//무기 비활성화, 이동 정지, 충돌 해제, 입력 차단 (부모 기능)
 	Super::Die();
+	
+	DoStopAiming();
 	
 	OnDied.Broadcast(this);
 	
@@ -38,6 +81,11 @@ void ANeonDistrictCharacter::SetupPlayerInputComponent(UInputComponent* PlayerIn
 		if (InteractAction)
 		{
 			EnhancedInput->BindAction(InteractAction, ETriggerEvent::Started, this, &ANeonDistrictCharacter::DoInteract);
+		}
+		if (AimAction)
+		{
+			EnhancedInput->BindAction(AimAction, ETriggerEvent::Started, this, &ANeonDistrictCharacter::DoStartAiming);
+			EnhancedInput->BindAction(AimAction, ETriggerEvent::Completed, this, &ANeonDistrictCharacter::DoStopAiming);
 		}
 	}
 }
