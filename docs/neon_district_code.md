@@ -1064,7 +1064,7 @@ E는 계속 들어오니 캐릭터가 `IsInDialogue()`로 분기 — `IA_Interac
 플레이 → NPC E → 세 줄 → 수락, HUD "건물에 진입하세요" → 다시 E → "아직이야?" → 트리거 진입 → `ND.SetMissionStep 3` →
 NPC E → "가져왔군" → HUD "미션 완료 — 랭크 S". 중간에 `NDKill` 넣으면 A. `ND.SetMissionStep 1`에서 말 걸면 "아직이야?"여야 한다.
 
-남은 것 (4번): 완료 후 NPC 이동, 통화 연출(카메라 — NPC 쪽에 두고 `SetViewTargetWithBlend`).
+남은 것 (4번): 완료 후 NPC 이동. 통화 연출의 카메라는 12-11에, 통화 UI 겉모습은 7번 HUD에.
 
 ### 12-9. Fixer 복귀와 완료 처리
 
@@ -1149,6 +1149,48 @@ HandleDialogueFinished
 | `ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer())` | 로컬 플레이어의 입력 서브시스템 |
 | `RemoveMappingContext` / `AddMappingContext(Ctx, Priority)` | 컨텍스트 단위로 입력 켜고 끄기 |
 | `GetPawn<T>()` | 컨트롤러에서 폰을 타입으로 |
+
+### 12-11. 대화 카메라 — 누가 각도를 드는가
+
+`StartDialogue`에 남겨둔 메모("카메라 무빙 추가 — 미션마다 카메라 위치 다르게 설정할 수 있는지? 캐릭터에 붙여야 하는지?")에 대한 답이다.
+관련 커밋: `16e3e08`.
+
+**결론 — 미션도 캐릭터도 아니고 NPC.** "어떤 각도로 이 사람과 대화하나"는 대화 상대마다 다른 것이다.
+
+| 후보 | 왜 아닌가 |
+|---|---|
+| 미션이 든다 | 한 미션에 NPC가 둘이면 각도가 하나뿐. 반대로 한 NPC가 여러 미션을 주면 미션마다 같은 각도를 중복 지정 |
+| 캐릭터(플레이어)가 든다 | 플레이어는 어디서 말을 걸지 모른다. 부스를 비추는 각도는 부스가 안다 |
+| **NPC가 든다** | 각도가 그 NPC의 배치와 함께 레벨에 남는다. NPC가 늘어도 코드 불변 |
+
+```text
+AFixerNPC
+  └ UCameraComponent DialogueCamera      생성자에서 만들고, 뷰포트에서 각도 조정
+
+AFixerNPC::Interact
+  PC->StartDialogue(테이블, 시작행, this)          ← 자기 자신을 view target으로
+ANeonDistrictPlayerController::StartDialogue
+  위젯 열기 + 이동·시점·무기 입력 잠금
+  ViewTarget 있으면 SetViewTargetWithBlend(ViewTarget, BlendTime, EaseInOut, 2)
+HandleDialogueFinished
+  입력 복구 + SetViewTargetWithBlend(GetPawn(), ...)
+```
+
+**전환 대상은 컴포넌트가 아니라 액터다.** `SetViewTargetWithBlend`는 `AActor*`를 받고, 그 액터에 `UCameraComponent`가 있으면
+엔진이 자동으로 그것을 쓴다. 그래서 카메라를 따로 꺼내지 않고 NPC 액터 자체를 넘긴다.
+
+**`ViewTarget`이 `nullptr`이면 화면을 안 바꾼다.** 기본값이 `nullptr`이라 카메라 연출이 없는 NPC도 그대로 동작하고 기존 호출부도 안 깨진다.
+
+**시점 입력 잠금이 여기서 의미가 커진다.** 안 잠그면 카메라가 NPC를 비추는 동안 마우스가 폰을 계속 돌려서, 복귀했을 때 엉뚱한 방향을 본다.
+대화 시스템을 만들 때 넣어둔 `SetIgnoreLookInput`이 카메라 전환의 전제가 됐다.
+
+**복귀 대상은 `GetPawn()`.** 대화 중엔 이동·사격이 잠겨 폰이 바뀔 일이 없지만, `nullptr`이면 전환을 건너뛴다 — 부활이 알아서 새 폰을 view target으로 잡는다.
+
+**블렌드 값은 컨트롤러 프로퍼티** (`DialogueCameraBlendTime`, 기본 0.6초 `VTBlend_EaseInOut` Exp 2).
+통화 느낌으로 각지게 하려면 `VTBlend_Linear` 0.2초 쪽이 나을 수 있고, 값만 바꾸면 된다.
+
+**아직 없는 것.** 뷰포트에서 맞춘 각도의 레벨 저장(지금 저장소에는 생성자 기본값만), 통화 UI 연출(카메라가 아니라 `WBP_Dialogue`의 겉모습 — 7번 HUD),
+NPC 애니메이션.
 
 ---
 
