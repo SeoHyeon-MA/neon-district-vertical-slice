@@ -6,6 +6,7 @@
 #include "Variant_Shooter/ShooterPlayerController.h"
 #include "NeonDistrictPlayerController.generated.h"
 
+class UInputAction;
 class UInteractionPromptWidget;
 class UMissionObjectiveWidget;
 class UDialogueWidget;
@@ -50,6 +51,14 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category= "Neon District|Dialogue")
 	TArray<TObjectPtr<UInputMappingContext>> DialogueBlockedContexts;
 	
+	// 대화 중에만 넣는 매핑 컨텍스트. IMC_Dialogue (좌클릭 -> 다음 줄)
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|Dialogue")
+	TObjectPtr<UInputMappingContext> DialogueContext;
+	
+	// 다음 줄로 넘기는 액션. IA_DialogueAdvance
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|Dialogue")
+	TObjectPtr<UInputAction> DialogueAdvanceAction;
+	
 	// 대화 카메라로 넘어가고 돌아오는 시간 (초)
 	UPROPERTY(EditDefaultsOnly, Category="Neon District|Dialogue")
 	float DialogueCameraBlendTime = 0.6f;
@@ -70,6 +79,8 @@ protected:
 	//~ Begin AController Interface
 	virtual void OnPossess(APawn* InPawn) override;
 	//~ End AController Interface
+	
+	virtual void SetupInputComponent() override;
 	
 private:
 	void HandleDialogueFinished();

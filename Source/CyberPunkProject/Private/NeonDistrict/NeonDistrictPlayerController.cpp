@@ -7,8 +7,10 @@
 #include "NeonDistrict/InteractionPromptWidget.h"
 #include "NeonDistrict/InteractionComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "EnhancedInputComponent.h"
 #include "HealthBarWidget.h"
 #include "InputMappingContext.h"
+#include "InputAction.h"
 #include "Variant_Shooter/ShooterCharacter.h"
 
 void ANeonDistrictPlayerController::BeginPlay()
@@ -76,6 +78,20 @@ void ANeonDistrictPlayerController::OnPossess(APawn* InPawn)
 	}
 }
 
+void ANeonDistrictPlayerController::SetupInputComponent()
+{
+	Super::SetupInputComponent();
+	
+	// 대화 넘기기는 폰이 아니라 컨트롤러가 받는다. 폰이 바뀌어도 유지
+	if (UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(InputComponent))
+	{
+		if (DialogueAdvanceAction)
+		{
+			EnhancedInput->BindAction(DialogueAdvanceAction, ETriggerEvent::Started, this, &ANeonDistrictPlayerController::AdvanceDialogue);
+		}
+	}
+}
+
 bool ANeonDistrictPlayerController::IsInDialogue() const
 {
 	return Dialogue && Dialogue->IsActive();
@@ -104,6 +120,11 @@ UDialogueWidget* ANeonDistrictPlayerController::StartDialogue(UDataTable* Table,
 		for (UInputMappingContext* Ctx : DialogueBlockedContexts)
 		{
 			Subsystem->RemoveMappingContext(Ctx);
+		}
+		// 대화 전용 입력을 넣는다 (좌클릭 -> 다음 줄)
+		if (DialogueContext)
+		{
+			Subsystem->AddMappingContext(DialogueContext, 1);
 		}
 	}
 	if (AShooterCharacter* ShooterPawn = GetPawn<AShooterCharacter>())
@@ -136,6 +157,11 @@ void ANeonDistrictPlayerController::HandleDialogueFinished()
 	
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
+		if (DialogueContext)
+		{
+			Subsystem->RemoveMappingContext(DialogueContext);
+		}
+		
 		for (UInputMappingContext* Ctx : DialogueBlockedContexts)
 		{
 			Subsystem->AddMappingContext(Ctx, 0);
