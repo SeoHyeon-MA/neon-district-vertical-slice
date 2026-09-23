@@ -72,3 +72,10 @@ Desktop.ini
 # ParagonTwinblast is 2.4 GB of Epic sample assets; committing it would
 # bloat the repository far past what GitHub is meant to carry.
 Content/ParagonTwinblast/
+
+# Local study imports and their notes. Not part of the project's deliverable
+# resources; kept out of the repository entirely (roadmap item 11).
+Content/CP77_Study/
+docs/CP77_Study/
+SourceArt/
+Tools/

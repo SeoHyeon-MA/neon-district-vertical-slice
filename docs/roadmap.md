@@ -27,7 +27,7 @@
 | 캐릭터 | `ANeonDistrictCharacter` — 템플릿 5초 리스폰 취소, 지연 후 재시작, `OnDied` 방송. `BP_NeonDistrictCharacter` | `bb1e60f` |
 | 무기 | `ANeonDistrictWeapon`(abstract) + `Pistol`/`Rifle` — 스태틱 메시 총, 종류별 애님·모델·오프셋·연사 | `4556b5b` `30ec023` `1016ce9` |
 | 미션 | `ANeonDistrictMission` — 진입 트리거, `EMissionState`, `DeathCount`, 델리게이트 구독, `SetupSegment` 루프 | `d302fec` `eea6986` `ece1d88` |
-| 정리 | Variant_Horror 제거, CP77_Study 쿠킹 제외, Public/Private 구조 | `8cea04a` `e78f25b` |
+| 정리 | Variant_Horror 제거, 학습용 폴더 쿠킹 제외, Public/Private 구조 | `8cea04a` `e78f25b` |
 
 아직 없는 것: 상호작용 프레임워크, NPC 대화, 적 배치·순찰, 창고 키·아이템, HUD, 컷씬, 환경 아트.
 
@@ -58,7 +58,7 @@
                 └──> [5] 적 AI 재설계 ──> 미션 SetupSegment 에 스폰 연결
 
 [9] 최적화 측정 ── 아트(10/5~) 이후
-[10] Variant_Horror 제거 ✓   [11] CP77_Study 분리 ✓
+[10] Variant_Horror 제거 ✓   [11] 학습용 폴더 분리 ✓
 ```
 
 | # | 항목 | 우선순위 | 의존 | 상태 (9/14) |
@@ -73,7 +73,7 @@
 | 8 | 시작·종료 시네마틱 | P2 | 3, 4 | 미착수 |
 | 9 | 최적화 전후 측정 | P2 | 아트 | 미착수 |
 | 10 | Variant_Horror 제거 | P2 | – | **완료** |
-| 11 | CP77_Study 쿠킹 분리 | P2 | – | **완료** |
+| 11 | 학습용 폴더 쿠킹 분리 | P2 | – | **완료** |
 
 주간 배정은 4절.
 
@@ -398,23 +398,22 @@ UE5 First Person 템플릿에 딸려 온 호러 변형 샘플로, 이 기획에�
 
 ---
 
-### 11. CP77_Study 학습 자료 쿠킹 대상에서 분리
+### 11. 학습용 임포트 자산 쿠킹 대상에서 분리
 
 **우선순위** P2 · **의존** 없음 (첫 패키징 전까지)
 
-`Content/CP77_Study/`는 상용 게임 환경을 분석해 재구성 기법을 익히기 위한 학습 자료다(`docs/CP77_Study/`).
-학습 기록으로서 가치가 있으므로 저장소에는 남기되, 최종 빌드에서는 분리한다.
+외부에서 임포트한 학습용 자산은 로컬 작업 폴더에만 두고 저장소와 최종 빌드에서 분리한다.
 README의 Disclaimer가 밝힌 대로 이 프로젝트의 리소스는 직접 제작하거나 사용 권한이 있는 자료로 구성하며,
-학습용 임포트 자산이 배포물에 섞이면 안 된다.
+학습용 임포트 자산이 배포물에 섞이면 안 된다. 해당 폴더는 git에도 추가하지 않는다 (9/23).
 
 - [x] `Config/DefaultGame.ini`에 `DirectoriesToNeverCook` 항목으로 `/Game/CP77_Study` 추가
-- [x] 슬라이스 레벨이 CP77_Study 에셋을 참조하지 않는지 레퍼런스 확인 — 참조 0건
+- [x] 슬라이스 레벨이 학습용 에셋을 참조하지 않는지 레퍼런스 확인 — 참조 0건
 - [x] `Content/Developers/`도 같은 방식으로 쿠킹 제외
 - [ ] `Content/NewCubeLevel.umap` (임시 테스트 맵) 유지·삭제 결정 — git 미추적이라 삭제 시 복구 불가, 판단 필요
 - [ ] `SourceArt/`, `Tools/` 저장소 포함 여부와 `.gitignore` 방침 결정
-- [ ] 학습 자료임을 `docs/CP77_Study/README_KO.md`에 명시
+- [x] 학습 기록 문서는 저장소에서 제외 (9/23 결정) — 위키에서도 관련 페이지를 내렸다
 
-**완료 기준** — 패키징 결과물에 학습용 임포트 자산이 포함되지 않고, 저장소에는 학습 기록이 그대로 남는다.
+**완료 기준** — 패키징 결과물과 저장소 어디에도 학습용 임포트 자산이 포함되지 않는다.
 
 ---
 
