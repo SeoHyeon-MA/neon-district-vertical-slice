@@ -35,6 +35,7 @@ public:
 	
 	
 protected:
+	virtual void BeginPlay() override;
 	
 	/** 폰·컨트롤러·UI 클래스는 생성자가 아니라 여기서 로드한다 */
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;

@@ -5,6 +5,7 @@
 #include "Variant_Shooter/Weapons/ShooterWeaponHolder.h"   // ← IShooterWeaponHolder
 #include "GameFramework/PlayerController.h"                // ← LoadClass<APlayerController>
 #include "GameFramework/Pawn.h"
+#include "GameFramework/GameModeBase.h"
 #include "Variant_Shooter/UI/ShooterUI.h"                  // ← ShooterUIClass
 #include "TimerManager.h"
 #include "Engine/World.h"
@@ -20,6 +21,11 @@ void ANeonDistrictGameMode::SetCheckpoint(const FTransform& NewCheckpoint)
 {
 	Checkpoint = NewCheckpoint;
 	bHasCheckpoint = true;
+}
+
+void ANeonDistrictGameMode::BeginPlay()
+{
+	AGameModeBase::BeginPlay();
 }
 
 void ANeonDistrictGameMode::RestartPlayer(AController* NewPlayer)
@@ -51,12 +57,6 @@ void ANeonDistrictGameMode::InitGame(const FString& MapName, const FString& Opti
 		PlayerControllerClass = PCClass;
 	}
 
-	// 탄약 카운터 UI
-	if (UClass* UIClass = LoadClass<UShooterUI>(nullptr,
-		TEXT("/Game/Variant_Shooter/UI/UI_Shooter.UI_Shooter_C")))
-	{
-		ShooterUIClass = UIClass;
-	}
 }
 
 void ANeonDistrictGameMode::SetPlayerDefaults(APawn* PlayerPawn)

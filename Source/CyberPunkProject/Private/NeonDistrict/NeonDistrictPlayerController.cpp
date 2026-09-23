@@ -14,6 +14,7 @@
 #include "InputMappingContext.h"
 #include "InputAction.h"
 #include "NeonDistrictCharacter.h"
+#include "ShooterBulletCounterUI.h"
 #include "Materials/MaterialExpressionOperator.h"
 #include "Variant_Shooter/ShooterCharacter.h"
 
@@ -114,6 +115,13 @@ void ANeonDistrictPlayerController::SetupInputComponent()
 		{
 			EnhancedInput->BindAction(DialogueAdvanceAction, ETriggerEvent::Started, this, &ANeonDistrictPlayerController::AdvanceDialogue);
 		}
+	}
+	
+	// 템플릿 탄약 UI(조준점.피격 효과 포함)는 쓰지 않는다. 우리 UHD로 대체
+	if (BulletCounterUI)
+	{
+		BulletCounterUI->RemoveFromParent();
+		BulletCounterUI=nullptr;
 	}
 }
 
