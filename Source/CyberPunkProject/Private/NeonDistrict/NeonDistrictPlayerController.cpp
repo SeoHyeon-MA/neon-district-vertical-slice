@@ -2,15 +2,19 @@
 
 
 #include "NeonDistrict/NeonDistrictPlayerController.h"
+#include "NeonDistrict/NeonDistrictCharacter.h"
 #include "NeonDistrict/MissionObjectiveWidget.h"
 #include "NeonDistrict/DialogueWidget.h"
 #include "NeonDistrict/InteractionPromptWidget.h"
 #include "NeonDistrict/InteractionComponent.h"
+#include "NeonDistrict/Widget/CrosshairWidget.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "HealthBarWidget.h"
 #include "InputMappingContext.h"
 #include "InputAction.h"
+#include "NeonDistrictCharacter.h"
+#include "Materials/MaterialExpressionOperator.h"
 #include "Variant_Shooter/ShooterCharacter.h"
 
 void ANeonDistrictPlayerController::BeginPlay()
@@ -45,6 +49,23 @@ void ANeonDistrictPlayerController::BeginPlay()
 		UE_LOG(LogTemp, Error, TEXT("[NeonDistrict] 체력 바 위젯 생성 실패"));
 	}
 	
+	// 크로스헤어 위젯
+	if (CrosshairWidgetClass)
+	{
+		Crosshair = CreateWidget<UCrosshairWidget>(this, CrosshairWidgetClass);
+		if (Crosshair)
+		{
+			Crosshair->AddToPlayerScreen(0);
+			
+			// 첫 스폰에서는 OnPossess 가 BeginPlay 보다 먼저 온다
+			Crosshair->BindToCharacter(GetPawn<ANeonDistrictCharacter>());
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("[NeonDistrict] 크로스헤어 위젯 생성실패"))
+		}
+	}
+	
 	// 상호작용 프롬포트
 	if (InteractionPromptClass)
 	{
@@ -75,6 +96,10 @@ void ANeonDistrictPlayerController::OnPossess(APawn* InPawn)
 	if (HealthBar)
 	{
 		HealthBar->BindToCharacter(Cast<AShooterCharacter>(InPawn));
+	}
+	if (Crosshair)
+	{
+		Crosshair->BindToCharacter(Cast<ANeonDistrictCharacter>(InPawn));
 	}
 }
 
@@ -138,6 +163,12 @@ UDialogueWidget* ANeonDistrictPlayerController::StartDialogue(UDataTable* Table,
 		SetViewTargetWithBlend(ViewTarget, DialogueCameraBlendTime, VTBlend_EaseInOut, 2.f);
 	}
 	
+	// 크로스헤어 숨김
+	if (Crosshair)
+	{
+		Crosshair->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	
 	Dialogue->Start(Table, StartRow);
 	return Dialogue;
 }
@@ -172,5 +203,10 @@ void ANeonDistrictPlayerController::HandleDialogueFinished()
 	if (APawn* MyPawn = GetPawn())
 	{
 		SetViewTargetWithBlend(MyPawn, DialogueCameraBlendTime, VTBlend_EaseInOut, 2.f);
+	}
+	
+	if (Crosshair)
+	{
+		Crosshair->SetVisibility(ESlateVisibility::HitTestInvisible);
 	}
 }

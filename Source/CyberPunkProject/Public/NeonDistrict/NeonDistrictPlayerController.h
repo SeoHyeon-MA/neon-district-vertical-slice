@@ -6,6 +6,7 @@
 #include "Variant_Shooter/ShooterPlayerController.h"
 #include "NeonDistrictPlayerController.generated.h"
 
+class UCrosshairWidget;
 class UInputAction;
 class UInteractionPromptWidget;
 class UMissionObjectiveWidget;
@@ -41,11 +42,17 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="Neon District|UI")
 	TSubclassOf<UHealthBarWidget> HealthBarWidgetClass;
 	
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|UI")
+	TSubclassOf<UCrosshairWidget> CrosshairWidgetClass;
+	
 	UPROPERTY()
 	TObjectPtr<UDialogueWidget> Dialogue;
 	
 	UPROPERTY()
 	TObjectPtr<UHealthBarWidget> HealthBar;
+	
+	UPROPERTY()
+	TObjectPtr<UCrosshairWidget> Crosshair;
 	
 	// 대화 중에 뺄 매핑 컨텍스트. IMC_Weapons 등
 	UPROPERTY(EditDefaultsOnly, Category= "Neon District|Dialogue")
