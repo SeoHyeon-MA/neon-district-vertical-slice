@@ -60,3 +60,64 @@ void ANeonDistrictWeapon::BeginPlay()
 
 	Super::BeginPlay();
 }
+
+void ANeonDistrictWeapon::Fire()
+{
+	if (bIsReloading)
+	{
+		return;
+	}
+	
+	// 탄창이 비었으면 쏘는 대신 재장전한다
+	if (CurrentBullets <= 0)
+	{
+		StartReload();
+		return;
+	}
+	
+	Super::Fire();
+}
+
+void ANeonDistrictWeapon::FireProjectile(const FVector& TargetLocation)
+{
+	const int32 BulletBefore = CurrentBullets;
+	
+	Super::FireProjectile(TargetLocation);
+	
+	// 템플릿-마지막 탄을 쏘면 바로 탄창을 채움 / 수정-비운채로 둠
+	if (BulletBefore <= 1)
+	{
+		CurrentBullets = 0;
+		
+		if (WeaponOwner)
+		{
+			WeaponOwner->UpdateWeaponHUD(CurrentBullets, MagazineSize);
+		}
+	}
+}
+
+void ANeonDistrictWeapon::StartReload()
+{
+	if (bIsReloading || CurrentBullets >= MagazineSize)
+	{
+		return;
+	}
+	
+	bIsReloading = true;
+	
+	//방아쇠를 누르고 있어도 멈춘다
+	StopFiring();
+	
+	GetWorldTimerManager().SetTimer(ReloadTimer, this, &ANeonDistrictWeapon::FinishReload, ReloadDuration, false);
+}
+
+void ANeonDistrictWeapon::FinishReload()
+{
+	bIsReloading = false;
+	CurrentBullets = MagazineSize;
+	
+	if (WeaponOwner)
+	{
+		WeaponOwner->UpdateWeaponHUD(CurrentBullets, MagazineSize);
+	}
+}

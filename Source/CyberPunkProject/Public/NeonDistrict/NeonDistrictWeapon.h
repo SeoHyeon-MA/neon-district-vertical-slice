@@ -51,4 +51,25 @@ protected:
 	//균일 배율
 	UPROPERTY(EditDefaultsOnly, Category = "NeonDistict|Mesh")
 	float GunMeshScale = 1.f;
+	
+	//재장전에 걸리는 시간
+	UPROPERTY(EditDefaultsOnly, Category= "NeonDistrict|Reload", meta = (ClampMin = 0.1, ClampMax = 10, Units = "s"))
+	float ReloadDuration = 1.5f;
+	
+	bool bIsReloading = false;
+	FTimerHandle ReloadTimer;
+	
+public:
+	bool IsReloading() const { return bIsReloading; }
+	
+	// 탄창이 가득 찼거나 이미 재장전 중이면 무시한다
+	void StartReload();
+	
+protected:
+	//~ Begin AShooterWeapon Interface
+	virtual void Fire() override;
+	virtual void FireProjectile(const FVector& TargetLocation) override;
+	//~ End AShooterWeapon Interface
+	
+	void FinishReload();
 };

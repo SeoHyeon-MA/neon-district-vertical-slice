@@ -8,6 +8,7 @@
 #include "GameFramework/Controller.h"
 #include "Engine/DamageEvents.h"
 #include "EnhancedInputComponent.h"
+#include "NeonDistrictWeapon.h"
 #include "Camera/CameraComponent.h"
 
 
@@ -87,6 +88,18 @@ void ANeonDistrictCharacter::SetupPlayerInputComponent(UInputComponent* PlayerIn
 			EnhancedInput->BindAction(AimAction, ETriggerEvent::Started, this, &ANeonDistrictCharacter::DoStartAiming);
 			EnhancedInput->BindAction(AimAction, ETriggerEvent::Completed, this, &ANeonDistrictCharacter::DoStopAiming);
 		}
+		if (ReloadAction)
+		{
+			EnhancedInput->BindAction(ReloadAction, ETriggerEvent::Started, this, &ANeonDistrictCharacter::DoReload);
+		}
+	}
+}
+
+void ANeonDistrictCharacter::DoReload()
+{
+	if (ANeonDistrictWeapon* Weapon = Cast<ANeonDistrictWeapon>(CurrentWeapon))
+	{
+		Weapon->StartReload();
 	}
 }
 

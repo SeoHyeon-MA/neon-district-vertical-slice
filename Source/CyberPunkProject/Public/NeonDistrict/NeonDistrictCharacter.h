@@ -50,6 +50,9 @@ protected:
 	UPROPERTY(VisibleInstanceOnly, Category="Neon District|Aim")
 	bool bIsAiming = false;
 	
+	UPROPERTY(EditAnywhere, Category="Neon District|Weapon")
+	UInputAction* ReloadAction;
+	
 	// BeginPlay 에서 카메라의 원래 시야각을 기억한다.
 	float DefaultFOV = 0.f;
 	
@@ -71,6 +74,8 @@ protected:
 	
 	void DoStartAiming();
 	void DoStopAiming();
+	
+	void DoReload();
 	
 	//레벨을 처음부터 다시 연다
 	void RequestRestart();
