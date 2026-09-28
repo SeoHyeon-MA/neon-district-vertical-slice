@@ -6,6 +6,7 @@
 #include "Variant_Shooter/ShooterPlayerController.h"
 #include "NeonDistrictPlayerController.generated.h"
 
+class UAmmoCounterWidget;
 class UCrosshairWidget;
 class UInputAction;
 class UInteractionPromptWidget;
@@ -42,6 +43,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="Neon District|UI")
 	TSubclassOf<UHealthBarWidget> HealthBarWidgetClass;
 	
+	UPROPERTY(EditDefaultsOnly, Category = "Neon District|UI") // 불렛 위젯
+	TSubclassOf<UAmmoCounterWidget> AmmoCounterClass;
+	
 	UPROPERTY(EditDefaultsOnly, Category="Neon District|UI")
 	TSubclassOf<UCrosshairWidget> CrosshairWidgetClass;
 	
@@ -50,6 +54,9 @@ protected:
 	
 	UPROPERTY()
 	TObjectPtr<UHealthBarWidget> HealthBar;
+	
+	UPROPERTY()
+	TObjectPtr<UAmmoCounterWidget> AmmoCounter;
 	
 	UPROPERTY()
 	TObjectPtr<UCrosshairWidget> Crosshair;

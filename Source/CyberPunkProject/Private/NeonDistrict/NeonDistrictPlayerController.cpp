@@ -8,6 +8,7 @@
 #include "NeonDistrict/InteractionPromptWidget.h"
 #include "NeonDistrict/InteractionComponent.h"
 #include "NeonDistrict/Widget/CrosshairWidget.h"
+#include "NeonDistrict/Widget/AmmoCounterWidget.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "HealthBarWidget.h"
@@ -48,6 +49,18 @@ void ANeonDistrictPlayerController::BeginPlay()
 	else
 	{
 		UE_LOG(LogTemp, Error, TEXT("[NeonDistrict] 체력 바 위젯 생성 실패"));
+	}
+	
+	// 불렛 위젯
+	AmmoCounter = CreateWidget<UAmmoCounterWidget>(this, AmmoCounterClass);
+	if (AmmoCounter)
+	{
+		AmmoCounter->AddToPlayerScreen(0);
+		AmmoCounter->BindToCharacter(GetPawn<ANeonDistrictCharacter>());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("[NeonDistrict] 불렛 위젯 생성 실패"));
 	}
 	
 	// 크로스헤어 위젯
@@ -97,6 +110,10 @@ void ANeonDistrictPlayerController::OnPossess(APawn* InPawn)
 	if (HealthBar)
 	{
 		HealthBar->BindToCharacter(Cast<AShooterCharacter>(InPawn));
+	}
+	if (AmmoCounter)
+	{
+		AmmoCounter->BindToCharacter(Cast<AShooterCharacter>(InPawn));
 	}
 	if (Crosshair)
 	{
