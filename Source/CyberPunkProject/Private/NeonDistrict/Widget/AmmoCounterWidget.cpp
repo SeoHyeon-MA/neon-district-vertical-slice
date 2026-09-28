@@ -3,13 +3,14 @@
 
 #include "NeonDistrict/Widget/AmmoCounterWidget.h"
 
-#include "ShooterCharacter.h"
+#include "NeonDistrict/NeonDistrictCharacter.h"
 
-void UAmmoCounterWidget::BindToCharacter(AShooterCharacter* Character)
+void UAmmoCounterWidget::BindToCharacter(ANeonDistrictCharacter* Character)
 {
 	if (BoundCharacter.IsValid())
 	{
 		BoundCharacter->OnBulletCountUpdated.RemoveDynamic(this, &UAmmoCounterWidget::HandleBulletCountUpdated);
+		BoundCharacter->OnReloadingChanged.RemoveAll(this);
 	}
 	
 	BoundCharacter = Character;
@@ -20,7 +21,9 @@ void UAmmoCounterWidget::BindToCharacter(AShooterCharacter* Character)
 	}
 	
 	Character->OnBulletCountUpdated.AddDynamic(this, &UAmmoCounterWidget::HandleBulletCountUpdated);
+	Character->OnReloadingChanged.AddUObject(this, &UAmmoCounterWidget::HandleReloadingChanged);
 	
+	HandleReloadingChanged(Character->IsReloading());
 	// 무기를 들기 전에는 방송이 오지 않는다. 일단 비워 둔다
 	HandleBulletCountUpdated(0, 0);
 }
@@ -51,4 +54,11 @@ void UAmmoCounterWidget::HandleBulletCountUpdated(int32 MagazineSize, int32 Bull
 	
 	BP_UpdateAmmo(FText::AsNumber(Bullets, &Format), FText::AsNumber(MagazineSize,&Format), bLowAmmo);
 	SetVisibility(ESlateVisibility::HitTestInvisible);
+	
+	BP_SetEmpty(Bullets <= 0);
+}
+
+void UAmmoCounterWidget::HandleReloadingChanged(bool bReloading)
+{
+	BP_SetReloading(bReloading);
 }

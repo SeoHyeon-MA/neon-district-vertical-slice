@@ -2,6 +2,7 @@
 
 
 #include "NeonDistrict/NeonDistrictWeapon.h"
+#include "NeonDistrict/NeonDistrictCharacter.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -68,10 +69,10 @@ void ANeonDistrictWeapon::Fire()
 		return;
 	}
 	
-	// 탄창이 비었으면 쏘는 대신 재장전한다
+	// 탄창이 비었으면 발사를 멈춘다. 재장전은 R 로만
 	if (CurrentBullets <= 0)
 	{
-		StartReload();
+		StopFiring();
 		return;
 	}
 	
@@ -109,6 +110,11 @@ void ANeonDistrictWeapon::StartReload()
 	StopFiring();
 	
 	GetWorldTimerManager().SetTimer(ReloadTimer, this, &ANeonDistrictWeapon::FinishReload, ReloadDuration, false);
+	
+	if (ANeonDistrictCharacter* Character = Cast<ANeonDistrictCharacter>(PawnOwner))
+	{
+		Character->SetReloading(true);
+	}
 }
 
 void ANeonDistrictWeapon::FinishReload()
@@ -119,5 +125,10 @@ void ANeonDistrictWeapon::FinishReload()
 	if (WeaponOwner)
 	{
 		WeaponOwner->UpdateWeaponHUD(CurrentBullets, MagazineSize);
+	}
+	
+	if (ANeonDistrictCharacter* Character = Cast<ANeonDistrictCharacter>(PawnOwner))
+	{
+		Character->SetReloading(false);
 	}
 }

@@ -64,6 +64,8 @@ void ANeonDistrictCharacter::Die()
 	
 	DoStopAiming();
 	
+	SetReloading(false);
+	
 	OnDied.Broadcast(this);
 	
 	//부모가 예약한 5초 리스폰을 취소
@@ -139,4 +141,12 @@ void ANeonDistrictCharacter::RequestRestart()
 void ANeonDistrictCharacter::NDKill()
 {
 	TakeDamage(MaxHP * 2.0f, FDamageEvent(), nullptr, this);
+}
+
+void ANeonDistrictCharacter::SetReloading(bool bNewReloading)
+{
+	if (bIsReloading == bNewReloading) return;
+	
+	bIsReloading = bNewReloading;
+	OnReloadingChanged.Broadcast(bIsReloading);
 }

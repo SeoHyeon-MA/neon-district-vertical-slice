@@ -16,6 +16,7 @@ class UInputAction;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnNeonCharacterDied, ANeonDistrictCharacter*)
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnAimingChanged, bool /*bAiming*/);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnReloadingChanged, bool /*bReloading*/);
 
 UCLASS()
 class CYBERPUNKPROJECT_API ANeonDistrictCharacter : public AShooterCharacter
@@ -49,6 +50,9 @@ protected:
 	
 	UPROPERTY(VisibleInstanceOnly, Category="Neon District|Aim")
 	bool bIsAiming = false;
+	
+	UPROPERTY(VisibleInstanceOnly, Category="Neon District|Weapon")
+	bool bIsReloading = false;
 	
 	UPROPERTY(EditAnywhere, Category="Neon District|Weapon")
 	UInputAction* ReloadAction;
@@ -91,4 +95,12 @@ public:
 	FOnAimingChanged OnAimingChanged;
 	
 	bool IsAiming() const { return bIsAiming; }
+	
+	// 재장전 상태가 바뀔 때 방송. 탄약 카운터가 구독한다.
+	FOnReloadingChanged OnReloadingChanged;
+	
+	bool IsReloading() const { return bIsReloading; }
+	
+	// 무기가 재장전을 시작, 종료할 때 부른다
+	void SetReloading(bool bNewReloading);
 };

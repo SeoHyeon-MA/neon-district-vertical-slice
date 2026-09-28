@@ -14,9 +14,7 @@
 #include "HealthBarWidget.h"
 #include "InputMappingContext.h"
 #include "InputAction.h"
-#include "NeonDistrictCharacter.h"
 #include "ShooterBulletCounterUI.h"
-#include "Materials/MaterialExpressionOperator.h"
 #include "Variant_Shooter/ShooterCharacter.h"
 
 void ANeonDistrictPlayerController::BeginPlay()
@@ -113,7 +111,7 @@ void ANeonDistrictPlayerController::OnPossess(APawn* InPawn)
 	}
 	if (AmmoCounter)
 	{
-		AmmoCounter->BindToCharacter(Cast<AShooterCharacter>(InPawn));
+		AmmoCounter->BindToCharacter(Cast<ANeonDistrictCharacter>(InPawn));
 	}
 	if (Crosshair)
 	{
