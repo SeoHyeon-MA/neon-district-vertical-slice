@@ -9,6 +9,7 @@
 #include "NeonDistrict/InteractionComponent.h"
 #include "NeonDistrict/Widget/CrosshairWidget.h"
 #include "NeonDistrict/Widget/AmmoCounterWidget.h"
+#include "NeonDistrict/Widget/HitFeedbackWidget.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "HealthBarWidget.h"
@@ -78,6 +79,17 @@ void ANeonDistrictPlayerController::BeginPlay()
 		}
 	}
 	
+	// 히트 피드백
+	if (HitFeedbackWidgetClass)
+	{
+		HitFeedback = CreateWidget<UHitFeedbackWidget>(this, HitFeedbackWidgetClass);
+		if (HitFeedback)
+		{
+			HitFeedback->AddToPlayerScreen(-1);
+			HitFeedback->BindToCharacter(GetPawn<AShooterCharacter>());
+		}
+	}
+	
 	// 상호작용 프롬포트
 	if (InteractionPromptClass)
 	{
@@ -116,6 +128,10 @@ void ANeonDistrictPlayerController::OnPossess(APawn* InPawn)
 	if (Crosshair)
 	{
 		Crosshair->BindToCharacter(Cast<ANeonDistrictCharacter>(InPawn));
+	}
+	if (HitFeedback)
+	{
+		HitFeedback->BindToCharacter(Cast<AShooterCharacter>(InPawn));
 	}
 }
 

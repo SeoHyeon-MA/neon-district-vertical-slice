@@ -6,6 +6,7 @@
 #include "Variant_Shooter/ShooterPlayerController.h"
 #include "NeonDistrictPlayerController.generated.h"
 
+class UHitFeedbackWidget;
 class UAmmoCounterWidget;
 class UCrosshairWidget;
 class UInputAction;
@@ -49,6 +50,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="Neon District|UI")
 	TSubclassOf<UCrosshairWidget> CrosshairWidgetClass;
 	
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|UI")
+	TSubclassOf<UHitFeedbackWidget> HitFeedbackWidgetClass;
+	
 	UPROPERTY()
 	TObjectPtr<UDialogueWidget> Dialogue;
 	
@@ -60,6 +64,9 @@ protected:
 	
 	UPROPERTY()
 	TObjectPtr<UCrosshairWidget> Crosshair;
+	
+	UPROPERTY()
+	TObjectPtr<UHitFeedbackWidget> HitFeedback;
 	
 	// 대화 중에 뺄 매핑 컨텍스트. IMC_Weapons 등
 	UPROPERTY(EditDefaultsOnly, Category= "Neon District|Dialogue")
