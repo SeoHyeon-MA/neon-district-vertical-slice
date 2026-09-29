@@ -11,6 +11,7 @@
 #include "NeonDistrict/Widget/AmmoCounterWidget.h"
 #include "NeonDistrict/Widget/HitFeedbackWidget.h"
 #include "NeonDistrict/Widget/DeathScreenWidget.h"
+#include "NeonDistrict/Widget/MissionCompleteWidget.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "HealthBarWidget.h"
@@ -99,6 +100,17 @@ void ANeonDistrictPlayerController::BeginPlay()
 		{
 			DeathScreen->AddToPlayerScreen(10); // 모든 UI보다 위에 띄움
 			DeathScreen->BindToCharacter(GetPawn<ANeonDistrictCharacter>());
+		}
+	}
+	
+	// MissionComplete Widget
+	if (MissionCompleteWidgetClass)
+	{
+		MissionComplete = CreateWidget<UMissionCompleteWidget>(this, MissionCompleteWidgetClass);
+		if (MissionComplete)
+		{
+			// 사망 화면(10)보다도 위
+			MissionComplete->AddToPlayerScreen(20);
 		}
 	}
 	
