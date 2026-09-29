@@ -1449,3 +1449,191 @@ Search for Enemy
 
 수락 → 진입 → `[Warehouse] 적 등록 - 2명` → 적 둘이 각자 `지점 0 → 1 → 2 → 0 …` 순서로 걷고 점마다 멈춤 →
 플레이어를 보면 추격·사격, 놓치면 조사 후 복귀 → 다 잡으면 마지막 적 자리에 키 드롭 → 콘솔 없이 완주.
+
+---
+
+## 14. HUD 세트 — 화면이 무엇을 구독하는가
+
+로드맵 7번. 템플릿 HUD를 전부 내리고(`e59524a`) 우리 위젯 열 개로 화면을 다시 채웠다.
+관련 커밋: `5f87a7c`(체력 바), `5a6d0f1`(조준), `9a51495`(크로스헤어), `dce1bef`(탄약), `60a7a4f`(재장전 표시),
+`8b17dba`(피격 비네트), `8ecaacb`(사망 화면), `c5b955b`(미션 완료 창), `d3b3e54`(획득 알림).
+목표 문구 위젯은 10절, 대화창은 12절에 따로 있다.
+
+### 14-1. 위젯이 붙는 자리는 두 갈래다
+
+열 개를 만들면서 드러난 것은, **위젯마다 구독 대상이 다르고 그에 따라 배선이 갈린다**는 점이다.
+
+| 구독 대상 | 위젯 | 누가 연결하나 |
+|---|---|---|
+| **폰** (`AShooterCharacter` / `ANeonDistrictCharacter`) | 체력 바, 크로스헤어, 탄약, 피격 비네트, 사망 화면 | 컨트롤러가 `BeginPlay`와 `OnPossess`에서 `BindToCharacter()` |
+| **월드** (서브시스템·등록부) | 목표 문구, 미션 완료 창, 획득 알림 | 위젯이 `NativeConstruct`에서 스스로 조회·구독 |
+| **없음** (상호작용 컴포넌트) | 상호작용 프롬프트 | 컨트롤러가 폰의 컴포넌트를 찾아 `BindToComponent()` |
+
+**폰에 붙는 쪽에 배선이 필요한 이유는 부활이다.** 플레이어가 죽으면 폰이 파괴되고 새 폰이 생긴다.
+위젯이 들고 있던 `TWeakObjectPtr`는 스스로 null이 되지만, **새 폰을 아무도 알려주지 않는다.**
+그래서 컨트롤러가 `OnPossess`에서 갈아 끼운다. 이 배선을 빠뜨리면 그 위젯만 조용히 죽는다 —
+프롬프트에서 한 번(8-7절), 체력 바에서 또 한 번 같은 실수를 했다.
+
+**월드에 붙는 쪽은 배선이 없다.** 등록부와 알림 서브시스템은 월드에 하나뿐이고 폰과 무관하므로,
+위젯이 `NativeConstruct`에서 직접 조회해 구독하면 끝이다. 컨트롤러는 만들어 화면에 올리기만 한다.
+**"선택지가 있으면 주입, 유일하면 조회"** 규칙이 그대로 적용된 자리다.
+
+컨트롤러가 위젯을 전부 소유하는 것은 변하지 않는다. 폰이 소유하면 부활 때 같이 사라지기 때문이다(8-7절).
+
+### 14-2. Z-Order — 화면의 층
+
+`AddToPlayerScreen(ZOrder)`로 층을 명시한다. 생성 순서에 기대면 위젯을 하나 끼워 넣을 때마다 순서가 어긋난다.
+
+| 층 | 위젯 | 이유 |
+|---|---|---|
+| −1 | 피격 비네트 | 붉은 화면이 체력·탄약을 덮으면 정작 볼 것을 가린다 |
+| 0 | 목표 문구, 체력 바, 탄약, 크로스헤어, 프롬프트 | 평상시 HUD |
+| 5 | 획득 알림 | HUD 위에 잠깐 뜬다 |
+| 10 | 사망 화면 | 죽으면 HUD 전체를 덮는다 |
+| 20 | 미션 완료 창 | 마지막에 모든 것 위로 |
+
+### 14-3. 값이 줄었을 때만 — 피격 비네트
+
+템플릿 `OnDamaged(LifePercent)`는 피격뿐 아니라 **스폰·부활 때도 `1.0`으로 방송한다.** 체력 바에는 그게 맞다(가득 찬 바를 그린다).
+비네트에는 틀리다 — 부활하자마자 화면이 붉게 번쩍인다.
+
+```cpp
+void UHitFeedbackWidget::HandleDamaged(float LifePercent)
+{
+	// 체력이 줄었을 때만 번쩍인다. 부활 시 1.0 방송에는 반응하지 않는다
+	if (LifePercent < LastLifePercent - KINDA_SMALL_NUMBER)
+	{
+		BP_OnHit(LifePercent);
+	}
+
+	LastLifePercent = LifePercent;
+}
+```
+
+같은 방송을 두 위젯이 구독하되 **해석이 다르다.** 방송하는 쪽은 "체력이 이 값이다"만 말하고,
+"맞았다"는 판단은 구독하는 쪽이 한다. 방송에 `bWasDamaged` 같은 플래그를 더하지 않아도 되는 이유다.
+
+`LastLifePercent`는 `BindToCharacter`에서 `1.f`로 되돌린다. 새 폰은 가득 찬 상태로 시작하기 때문이다.
+
+### 14-4. 화면을 걷는 신호 — 사망 화면
+
+죽고 나서 재시작까지는 `ANeonDistrictCharacter::RestartDelay`(2초)다. 그 사이를 사망 화면이 덮는다.
+
+화면을 **언제 걷을지**가 유일한 설계 지점이었다. 타이머를 하나 더 두면 `RestartDelay`를 바꿀 때마다 둘을 같이 고쳐야 하고,
+어긋나면 검은 화면이 먼저 걷히거나 늦게까지 남는다. 그래서 신호를 **빙의**로 삼았다.
+
+```cpp
+void UDeathScreenWidget::BindToCharacter(ANeonDistrictCharacter* Character)
+{
+	// … 구독 교체 …
+
+	if (Character)
+	{
+		Character->OnDied.AddUObject(this, &UDeathScreenWidget::HandleDied);
+
+		// 새 폰을 받았다 = 재시작이 끝났다. 화면을 걷는다
+		SetVisibility(ESlateVisibility::Collapsed);
+	}
+}
+```
+
+14-1의 `OnPossess` 배선이 그대로 "화면을 걷어라"가 된다. 배선 하나가 두 가지 일을 한다.
+연출 길이는 `BP_OnDeath(RestartDelay)`로 넘겨 UMG가 재생 속도로 맞춘다 — 1초짜리 애니메이션을 `1.0 / RestartDelay` 배속으로 재생한다.
+`RestartDelay`를 3초로 바꾸면 연출도 따라 늘고 UMG는 손대지 않는다.
+
+### 14-5. 완료 신호를 어디서 받나 — 미션 완료 창
+
+`CompleteMission()`은 이 순서로 움직인다.
+
+```text
+State = Completed → NotifyStateChanged() → Registry->Unregister(this)
+```
+
+그래서 등록부의 `OnActiveMissionsChanged(Mission, false)`를 완료 신호로 쓸 수 있고, 그 시점에 상태는 이미 `Completed`다.
+미션 액터를 따로 찾아 들고 있을 필요가 없다.
+
+```cpp
+	// 등록이 아니라 해제일 때만. 중도 포기로 빠지는 경우를 대비해 완료 상태도 확인한다
+	if (bRegistered || !Mission || Mission->GetState() != EMissionState::Completed) return;
+
+	// 랭크는 메인 미션만 매긴다. 사이드는 창을 띄우지 않는다
+	const ANeonDistrictMainMission* MainMission = Cast<ANeonDistrictMainMission>(Mission);
+	if (!MainMission) return;
+```
+
+**조건을 둘 다 확인하는 이유.** 지금은 완료 말고 등록부에서 빠질 길이 없다. 하지만 "포기"나 "실패"가 생기면 같은 방송이 온다.
+조건 하나로 버티면 그때 완료 창이 잘못 뜬다 — 지금 한 줄이 나중의 버그 하나다.
+
+`Cast`로 메인만 거르는 것도 같은 성격이다. 랭크와 사망 횟수는 `ANeonDistrictMainMission`에만 있고(3-A 결정),
+위젯이 그 경계를 그대로 따른다.
+
+### 14-6. 알림 통로 — 보내는 쪽이 받는 쪽을 모르게
+
+획득 알림에서 픽업이 HUD를 직접 부르게 하면, 창고 열쇠가 위젯 클래스를 알아야 한다.
+문·셔터·미션 단계도 한 줄씩 띄우고 싶어지면 그때마다 HUD에 배선이 생긴다.
+
+등록부와 같은 모양으로 **알림 통로**를 하나 뒀다.
+
+```cpp
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnNotification, const FText&);
+
+UCLASS()
+class CYBERPUNKPROJECT_API UNotificationSubsystem : public UWorldSubsystem
+{
+public:
+	FOnNotification OnNotification;
+
+	void Push(const FText& Message);
+
+	// 월드를 들고 있지 않은 곳에서 한 줄로 부르기 위한 헬퍼
+	static void Notify(const UObject* WorldContext, const FText& Message);
+};
+```
+
+픽업은 `UNotificationSubsystem::Notify(this, PickupMessage)` 한 줄이고, 받는 쪽이 누구인지 모른다.
+`static Notify`는 편의 함수일 뿐이고 안에서 하는 일은 `GetWorld()->GetSubsystem<>()` 조회 그대로다 —
+서브시스템은 여전히 조회로 찾는다. 월드에 하나뿐이니까.
+
+문장 조립은 **보내는 쪽 몫**이다. 통로는 `FText`를 그냥 나른다. 픽업이 `PickupMessage`를 `UPROPERTY`로 들고 있어
+에디터에서 문구를 바꿀 수 있고, C++은 무엇을 주웠는지 모른다.
+
+### 14-7. `Collapsed`를 쓰는 위젯과 안 쓰는 위젯
+
+| 방식 | 위젯 | 왜 |
+|---|---|---|
+| 투명도만 | 피격 비네트, 획득 알림 | 매번 보였다 사라지고, `Collapsed`↔`Visible` 전환이 애니메이션 첫 프레임을 튀게 한다 |
+| `Collapsed` 전환 | 목표 문구, 사망 화면, 완료 창 | 조건이 만족될 때까지 아예 없어야 한다. 알파 0으로 계속 떠 있을 이유가 없다 |
+
+`HitTestInvisible`을 쓰는 것은 공통이다. 알림·비네트가 클릭을 먹으면 안 된다.
+
+### 14-8. 겪은 문제
+
+| 문제 | 원인 | 해결 |
+|---|---|---|
+| 체력 바가 첫 생애 내내 비어 있음 | `OnPossess`에만 배선. 첫 스폰은 빙의가 위젯 생성보다 먼저다 | `BeginPlay`에서도 `BindToCharacter(GetPawn<>())` 한 번 (8-7절과 같은 실수) |
+| 게임 종료 시 `CreateWidget called with a null class` | `CreateWidget`이 결과를 검사하기 **전에** 로그를 찍는다. 클래스를 비워도 경고가 남는다 | 게임모드에서 `AShooterGameMode::BeginPlay`를 건너뛰고 `AGameModeBase::BeginPlay()`를 직접 호출 |
+| 크로스헤어가 가운데 기준으로 줄어들지 않음 | 캔버스 슬롯 `Alignment` 기본값이 `0,0` | 슬롯 `Alignment 0.5, 0.5` + Render Transform Pivot `0.5, 0.5` |
+| 좌클릭 없이 탄창이 알아서 채워짐 | 풀오토 리파이어 타이머가 마지막 탄 뒤 가상 `Fire()`를 한 번 더 부른다 | 빈 탄창 분기를 `StartReload()`에서 `StopFiring()`으로 |
+| `OnReloadingChanged.RemoveAll` 에 빨간 줄 | 보관 포인터가 `AShooterCharacter` — 그 델리게이트는 자식에만 있다 | `TWeakObjectPtr<ANeonDistrictCharacter>`로 |
+| 새 위젯 클래스가 드롭다운에 없음 | 에디터를 켠 채 빌드 | 에디터 끄고 빌드 |
+
+### 14-9. 이번에 쓴 API
+
+| | 뜻 |
+|---|---|
+| `AddToPlayerScreen(ZOrder)` | 컨트롤러 화면에 층을 정해 올린다. 음수도 된다 |
+| `ESlateVisibility::HitTestInvisible` | 보이되 입력을 먹지 않는다 |
+| `UFUNCTION(BlueprintImplementableEvent)` | 값 계산은 C++, 그리기는 UMG. 위젯마다 `BP_` 접두사로 통일 |
+| `NativeConstruct` / `NativeDestruct` | 위젯의 `BeginPlay` / `EndPlay`. 월드 구독은 여기서 걸고 푼다 |
+| `GEngine->GetWorldFromContextObject(…, ReturnNull)` | 월드를 들고 있지 않은 정적 함수에서 월드 얻기 |
+| `FNumberFormattingOptions::MinimumIntegralDigits` | `07 / 30` 처럼 자릿수 고정 |
+| UMG **Format Text** | `FText` 조립. `Append`로 이으면 지역화 정보가 날아간다 |
+| UMG **Playback Speed** (구 Play Rate) | 애니메이션 길이를 C++이 넘긴 시간에 맞춘다 |
+
+### 14-10. 검증
+
+시작 → 탄약 `30 / 30`, 체력 가득, 크로스헤어 중앙 → 우클릭 시 화면 확대·크로스헤어 축소 →
+사격으로 탄약 감소, 25% 이하에서 경고 색, 0에서 `R` 안내 → `R`로 재장전, 그동안 발사 불가 →
+피격 시 가장자리가 붉게, 체력 바 감소 → 사망 시 2초 암전 후 부활하며 화면이 걷히고 **모든 위젯이 다시 붙음** →
+열쇠·데이터칩 획득 시 하단에 한 줄 → 복귀 대화 종료 시 `MISSION COMPLETE` + 랭크 + 사망 횟수 →
+화면에 템플릿 위젯이 하나도 없음.
