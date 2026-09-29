@@ -2,8 +2,11 @@
 
 
 #include "NeonDistrict/WarehousePickup.h"
+
+#include "NotificationSubsystem.h"
 #include "NeonDistrict/MissionRegistry.h"
 #include "NeonDistrict/WarehouseMission.h"
+#include "NeonDistrict/NotificationSubsystem.h"
 #include "Components/StaticMeshComponent.h"
 
 // Sets default values
@@ -38,6 +41,9 @@ void AWarehousePickup::Interact(APawn* InteractingPawn)
 	if (AWarehouseMission* Mission = AWarehouseMission::FindActive(this))
 	{
 		Mission->AdvanceTo(NextStep);
+		
+		UNotificationSubsystem::Notify(this, PickupMessage);
+		
 		Destroy();
 	}
 }

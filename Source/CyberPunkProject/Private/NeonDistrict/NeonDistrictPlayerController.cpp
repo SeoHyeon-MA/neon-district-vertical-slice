@@ -12,6 +12,7 @@
 #include "NeonDistrict/Widget/HitFeedbackWidget.h"
 #include "NeonDistrict/Widget/DeathScreenWidget.h"
 #include "NeonDistrict/Widget/MissionCompleteWidget.h"
+#include "NeonDistrict/Widget/NotificationWidget.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "HealthBarWidget.h"
@@ -114,6 +115,17 @@ void ANeonDistrictPlayerController::BeginPlay()
 		}
 	}
 	
+	// Notification Widget
+	if (NotificationWidgetClass)
+	{
+		Notification = CreateWidget<UNotificationWidget>(this, NotificationWidgetClass);
+		if (Notification)
+		{
+			// 일반 HUD위, 사망 화면(10)아래.
+			Notification->AddToPlayerScreen(5);
+		}
+	}
+		
 	// 상호작용 프롬포트
 	if (InteractionPromptClass)
 	{

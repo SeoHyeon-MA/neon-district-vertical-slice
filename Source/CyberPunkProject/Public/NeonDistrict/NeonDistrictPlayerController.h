@@ -6,6 +6,7 @@
 #include "Variant_Shooter/ShooterPlayerController.h"
 #include "NeonDistrictPlayerController.generated.h"
 
+class UNotificationWidget;
 class UMissionCompleteWidget;
 class UDeathScreenWidget;
 class UHitFeedbackWidget;
@@ -61,6 +62,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="Neon District|UI")
 	TSubclassOf<UMissionCompleteWidget> MissionCompleteWidgetClass;
 	
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|UI")
+	TSubclassOf<UNotificationWidget> NotificationWidgetClass;
+	
 	UPROPERTY()
 	TObjectPtr<UDialogueWidget> Dialogue;
 	
@@ -81,6 +85,9 @@ protected:
 	
 	UPROPERTY()
 	TObjectPtr<UMissionCompleteWidget> MissionComplete;
+	
+	UPROPERTY()
+	TObjectPtr<UNotificationWidget> Notification;
 	
 	// 대화 중에 뺄 매핑 컨텍스트. IMC_Weapons 등
 	UPROPERTY(EditDefaultsOnly, Category= "Neon District|Dialogue")

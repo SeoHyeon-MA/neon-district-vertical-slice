@@ -25,6 +25,10 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Neon District")
 	FText Prompt;
 	
+	// 주웠을 때 화면에 띄울 문자
+	UPROPERTY(EditAnywhere, Category="Neon District")
+	FText PickupMessage;
+	
 	// 이 단계일 때만 주울 수 있다
 	UPROPERTY(EditAnywhere, Category="Neon District")
 	EWarehouseStep RequiredStep = EWarehouseStep::KeyDropped;
