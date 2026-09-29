@@ -103,4 +103,6 @@ public:
 	
 	// 무기가 재장전을 시작, 종료할 때 부른다
 	void SetReloading(bool bNewReloading);
+	
+	float GetRestartDelay() const { return RestartDelay; }
 };

@@ -10,6 +10,7 @@
 #include "NeonDistrict/Widget/CrosshairWidget.h"
 #include "NeonDistrict/Widget/AmmoCounterWidget.h"
 #include "NeonDistrict/Widget/HitFeedbackWidget.h"
+#include "NeonDistrict/Widget/DeathScreenWidget.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "HealthBarWidget.h"
@@ -90,6 +91,17 @@ void ANeonDistrictPlayerController::BeginPlay()
 		}
 	}
 	
+	// DeathScreen Widget
+	if (DeathScreenWidgetClass)
+	{
+		DeathScreen = CreateWidget<UDeathScreenWidget>(this, DeathScreenWidgetClass);
+		if (DeathScreen)
+		{
+			DeathScreen->AddToPlayerScreen(10); // 모든 UI보다 위에 띄움
+			DeathScreen->BindToCharacter(GetPawn<ANeonDistrictCharacter>());
+		}
+	}
+	
 	// 상호작용 프롬포트
 	if (InteractionPromptClass)
 	{
@@ -132,6 +144,10 @@ void ANeonDistrictPlayerController::OnPossess(APawn* InPawn)
 	if (HitFeedback)
 	{
 		HitFeedback->BindToCharacter(Cast<AShooterCharacter>(InPawn));
+	}
+	if (DeathScreen)
+	{
+		DeathScreen->BindToCharacter(Cast<ANeonDistrictCharacter>(InPawn));
 	}
 }
 
