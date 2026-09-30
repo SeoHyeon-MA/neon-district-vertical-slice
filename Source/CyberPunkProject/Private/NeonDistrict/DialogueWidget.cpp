@@ -12,7 +12,14 @@ void UDialogueWidget::Advance()
 {
 	if (!IsActive()) return;
 	
-	// 줄이 끝났다 - Effect를 먼저 넘기고 다음 줄로
+	// 찍히는 중이면 줄만 완성하고 넘기지 않는다.
+	// 한 번 더 눌러야 다음 줄 - 실수로 대사를 건너뛰지 않게
+	if (IsTyping())
+	{
+		CompleteLine();
+		return;
+	}
+	
 	if (CurrentEffect != EDialogueEffect::None)
 	{
 		OnEffect.ExecuteIfBound(CurrentEffect);
@@ -32,14 +39,59 @@ void UDialogueWidget::ShowRow(FName Row)
 	CurrentRow = Row;
 	NextRow = Line->NextRow;
 	CurrentEffect = Line->Effect;
-	BP_UpdateLine(Line->Speaker, Line->Text, Line->bIsPlayer);
+	BP_UpdateLine(Line->Speaker, Line->bIsPlayer);  
+	
+	FullLine = Line->Text.ToString();
+	VisibleChars = 0;
+	
+	BP_SetLineText(FText::GetEmpty());
+	BP_SetLineComplete(false);
+	
+	if (FullLine.IsEmpty())
+	{
+		CompleteLine();
+		return;
+	}
+	
+	GetWorld()->GetTimerManager().SetTimer(TypeTimer, this, &UDialogueWidget::TypeNextChar, CharInterval, true);
 }
 
 void UDialogueWidget::Finish()
 {
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(TypeTimer);
+	}
+	
 	CurrentRow = NAME_None;
 	NextRow = NAME_None;
 	CurrentEffect = EDialogueEffect::None;
+	FullLine.Reset();
+	VisibleChars = 0;
+	
 	SetVisibility(ESlateVisibility::Collapsed);
 	OnFinished.ExecuteIfBound();
+}
+
+void UDialogueWidget::TypeNextChar()
+{
+	++VisibleChars;
+	
+	if (!IsTyping())
+	{
+		CompleteLine();
+		return;
+	}
+	
+	BP_SetLineText(FText::FromString(FullLine.Left(VisibleChars)));
+}
+
+void UDialogueWidget::CompleteLine()
+{
+	GetWorld()->GetTimerManager().ClearTimer(TypeTimer);
+	
+	VisibleChars = FullLine.Len();
+	
+	BP_SetLineText(FText::FromString(FullLine));
+	BP_SetLineComplete(true);
 }
