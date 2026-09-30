@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include <tiffio.h>
-
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "NeonDistrict/MissionDialogueTypes.h"
@@ -40,7 +38,7 @@ public:
 protected:
 	// 블루프린트가 화자.본문 텍스트 블록을 갱신
 	UFUNCTION(BlueprintImplementableEvent, Category="Neon District", meta = (DisplayName = "Update Line"))
-	void BP_UpdateLine(const FText& Speaker, const FText& Text);
+	void BP_UpdateLine(const FText& Speaker, const FText& Text, bool bIsPlayer);
 	
 private:
 	// 행을 찾아 화면에 올린다. 없으면 끝낸다

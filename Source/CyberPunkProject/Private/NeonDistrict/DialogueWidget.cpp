@@ -32,7 +32,7 @@ void UDialogueWidget::ShowRow(FName Row)
 	CurrentRow = Row;
 	NextRow = Line->NextRow;
 	CurrentEffect = Line->Effect;
-	BP_UpdateLine(Line->Speaker, Line->Text);
+	BP_UpdateLine(Line->Speaker, Line->Text, Line->bIsPlayer);
 }
 
 void UDialogueWidget::Finish()

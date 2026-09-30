@@ -32,4 +32,8 @@ struct FDialogueLine : public FTableRowBase
 	// 이 줄이 끝날 때 적용
 	UPROPERTY(EditAnywhere, Category = "Dialogue")
 	EDialogueEffect Effect = EDialogueEffect::None;
+	
+	// 플레이어의 대사인가. 화면에서 색으로 구분한다
+	UPROPERTY(EditAnywhere, Category = "Dialogue")
+	bool bIsPlayer = false;
 };
