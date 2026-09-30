@@ -52,6 +52,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "NeonDistict|Mesh")
 	float GunMeshScale = 1.f;
 	
+	// 이 무기로 조준할 때 팔 메시를 얼마나 옮길지. 에디터에서 눈으로 맞춘다
+	UPROPERTY(EditAnywhere, Category="NeonDistrict|Aim")
+	FVector AimOffsetLocation = FVector::ZeroVector;
+	
+	UPROPERTY(EditAnywhere, Category = "NeonDistrict|Aim")
+	FRotator AimOffsetRotation = FRotator::ZeroRotator;
+	
 	//재장전에 걸리는 시간
 	UPROPERTY(EditDefaultsOnly, Category= "NeonDistrict|Reload", meta = (ClampMin = 0.1, ClampMax = 10, Units = "s"))
 	float ReloadDuration = 1.5f;
@@ -64,6 +71,9 @@ public:
 	
 	// 탄창이 가득 찼거나 이미 재장전 중이면 무시한다
 	void StartReload();
+	
+	const FVector& GetAimOffsetLocation() const { return AimOffsetLocation; }
+	const FRotator& GetAimOffsetRotation() const { return AimOffsetRotation; }
 	
 protected:
 	//~ Begin AShooterWeapon Interface

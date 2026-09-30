@@ -23,6 +23,9 @@ class CYBERPUNKPROJECT_API ANeonDistrictCharacter : public AShooterCharacter
 {
 	GENERATED_BODY()
 	
+	// 조준하면 무기 메시를 조준 위치로 보간한다
+	void UpdateAimPose(float DeltaSeconds);
+	
 protected:
 	// 앞을 훑어 상호작용 대상을 찾는다
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
