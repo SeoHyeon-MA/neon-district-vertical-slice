@@ -1,0 +1,116 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Components/SplineMeshComponent.h"
+#include "Engine/DataAsset.h"
+#include "PropProfileDataAsset.generated.h"
+
+class UStaticMesh;
+
+/** 스플라인 위에 메쉬를 올리는 두 가지 방식 (메쉬를 휘게 할 것이나 단순 반복 할 것이냐에 따라) */
+UENUM(BlueprintType)
+enum class EPropPlacementMode : uint8
+{
+	// 메쉬를 휘지 않고 일정 간격으로 복제한다. (펜스 기둥, 가로등, 파이프 브래킷)
+	Repeat UMETA(DisplayName = "반복 배치 (펜스 기둥/가로등)"),
+	// 메쉬를 스플라인 모양대로 휜다. (파이프 본페, 늘어진 전선, 펜스 그물망)
+	Deform UMETA(DisplayName = "스플라인 변형 (파이프/전선)")
+};
+
+/**
+ * ASplinePropActor 가 무엇을 어떻게 놓을지 담아두는 프로파일.
+ * 액터에 메쉬를 직접 박지 않고 이 에셋만 교체하면
+ * 펜스 -> 파이프 -> 전선으로 통째로 바뀐다.
+ * 로직은 없고 값만 있으므로 .cpp 은 없다.
+ */
+UCLASS(BlueprintType)
+class CYBERPUNKPROJECT_API UPropProfileDataAsset : public UPrimaryDataAsset
+{
+	GENERATED_BODY()
+	
+public:
+	// -- 메쉬 --
+	
+	// 스플라인을 따라 반복하거나 휠 메쉬
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Prop|Mesh")
+	TObjectPtr<UStaticMesh> Mesh = nullptr;
+	
+	// 반복할지 휠지
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Prop|Mesh")
+	EPropPlacementMode Mode = EPropPlacementMode::Repeat;
+	
+	// 비워두면 메쉬 원본 메테리얼을 그대로 쓴다. 슬록 순서대로 덮어씌운다
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Prop|Mesh")
+	TArray<TObjectPtr<UMaterialInterface>> MaterialOverrides;
+	
+	// -- 배치 --
+	
+	// 반복 배치일 때 메쉬 사이 거리(cm)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Prop|Placement", meta = (ClampMin = "1.0", UIMin = "50.0", UIMax = "1000.0", EditCondition = "Mode == EPropPlacementMode::Repeat", EditConditionHides))
+	float Spacing = 200.0f;
+
+	/**
+	 *  간격을 스플라인 길이에 맞춰 미세 조정해서 끝에 자투리가 남지 않게 한다.
+	 *  끄면 Spacing 을 정확히 지키는 대신 ㄷ마지막 구간이 어중간하게 비는 경우가 생긴다.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Placement", meta = (EditCondition = "Mode == EPropPlacementMode::Repeat", EditConditionHides))
+	bool bFitToSpline = true;
+	
+	/** 메쉬를 스플라인 진행 방향으로 돌린다. 끄면 전부 같은 방향을 본다 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Placement", meta = (EditCondition = "Mode == EPropPlacementMode::Repeat", EditConditionHides))
+	bool bAlignToSpline = true;
+	
+	/** 스플라인이 주는 롤(기울기)을 버리고 항상 수직으로 세운다. 기둥류는 켜두는 게 안전하다 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Placement", meta = (EditCondition = "Mode == EPropPlacementMode::Repeat && bAlignToSpline", EditConditionHides))
+	bool bIgnoreSplineRoll = true;
+	
+	/** 메쉬가 엉뚱한 방향을 볼 때 보정하는 각도 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Placement")
+	FRotator RotationOffset = FRotator::ZeroRotator;
+	
+	/**
+	 *  메쉬를 모델링할 때 어느 축이 "길이 방향"이었는지.
+	 *  이게 틀리면 파이프가 납작하게 뭉게진다. 안 맞으면 Y, Z 로 돌려볼 것.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Prop|Placement", meta = (EditCondition = "Mode == EPropPlacementMode::Deform", EditConditionHides))
+	TEnumAsByte<ESplineMeshAxis::Type> ForwardAxis = ESplineMeshAxis::X;
+	
+	// -- 변화 주기 --
+	
+	/** 배치할 때마다 무작위로 더할 수 있는 회전 폭(도). 0 이면 전부 반듯하다 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Prop|Variation", meta = (ClampMin = "0.0", ClampMax = "180.0", EditCondition = "Mode == EPropPlacementMode::Repeat", EditConditionHides))
+	float RotationJitter = 0.0f;
+	
+	/** 크기를 흔드는 폭. 0.1이면 0.9 ~ 1.1 배 사이 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Prop|Variation", meta = (ClampMin = "0.0", ClampMax = "0.9", EditCondition = "Mode == EPropPlacementMode::Repeat", EditConditionHides))
+	float ScaleJitter = 0.0f;
+	
+	/**
+	 *	난수 시드. 고정해두지 않으면 스플라인을 건드릴 때마다
+	 *	흔들림과 색이 전부 바뀌어서 작업을 할 수 없다.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Variation")
+	int32 Seed = 12345;
+	
+	// -- 렌더링 --
+	
+	/** 끄면 그림자 패스 비용이 통째로 빠진다. (전선, 잔가지 프롭) */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Rendering")
+	bool bCastShadow = true;
+	
+	/** 장식용 파이프나 전선은 충돌이 필요 없다 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Rendering")
+	bool bEnableCollision = true;
+	
+	/** 이 거리(cm)를 넘으면 그리지 않는다. 0 이면 제한 없음 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Rendering", meta = (ClampMin = "0.0", UIMax = "20000.0"))
+	float CullDistance = 0.0f;
+	
+public:
+	// -- 공개 API -- 
+	
+	/** 이 프로파일로 실제로 무언가를 그릴 수 있는 상태인지 */
+	bool IsUsable() const { return Mesh != nullptr; }
+};
