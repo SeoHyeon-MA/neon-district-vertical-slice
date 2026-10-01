@@ -588,7 +588,9 @@ README의 Disclaimer가 밝힌 대로 이 프로젝트의 리소스는 직접 �
 - [ ] Deform 배치 — 구간별 위치·**탄젠트** 전달. 위치만 주면 곡선이 각져 보인다
 - [ ] `PropMeshBuilder` — 그래픽 층 분리 (`namespace` + 자유 함수, UCLASS 아님)
 - [ ] 렌더링 옵션 반영 — `SetCastShadow`, 콜리전, `SetCullDistances`
-- [ ] 전선 처짐 — `SetTangentsAtSplinePoint`로 스플라인 자체를 처지게 만듦
+- [ ] 전선 처짐 — 읽어온 탄젠트의 Z만 지역에서 기울인다(시작은 빼고 끝은 더한다). 처짐은 탄젠트 크기에 비례시켜 구간이 길수록 더 늘어지게 한다.
+  ~~`SetTangentsAtSplinePoint`로 스플라인 자체를 처지게 만듦~~ — **틀렸다 (10/1).** `OnConstruction`이 점을 드래그할 때마다 돌기 때문에
+  원본 탄젠트를 고치면 처짐이 무한히 누적되고, `SagAmount`를 0으로 되돌려도 원래 모양으로 돌아오지 않는다. 사용자가 찍은 스플라인은 원본으로 두고 넘기는 사본만 고친다
 - [ ] Per-instance custom data로 네온 색·Emissive 세기 변화 (드로우콜 1회 유지, 해석은 머티리얼 쪽)
 - [ ] `FRandomStream(Seed)` 결정적 난수 — `FMath::FRand()`를 쓰면 스플라인을 건드릴 때마다 전부 바뀌어 작업이 불가능하다
 
