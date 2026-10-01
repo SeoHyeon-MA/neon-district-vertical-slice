@@ -77,6 +77,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Prop|Placement", meta = (EditCondition = "Mode == EPropPlacementMode::Deform", EditConditionHides))
 	TEnumAsByte<ESplineMeshAxis::Type> ForwardAxis = ESplineMeshAxis::X;
 	
+	/**
+	 *	전선이 자기 무게로 쳐지는 정도. 0이면 직선 (무게가 없으므로)
+	 *	구간 길이에 비례하므로 0.3이면 어느 간격에서나 비슷한 느낌으로 늘어진다
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Placement", meta = (ClampMin = "0.0", ClampMax = "2.0", EditCondition = "Mode == EPropPlacementMode::Deform", EditConditionHides))
+	float SagAmount = 0.f;
+	
 	// -- 변화 주기 --
 	
 	/** 배치할 때마다 무작위로 더할 수 있는 회전 폭(도). 0 이면 전부 반듯하다 */

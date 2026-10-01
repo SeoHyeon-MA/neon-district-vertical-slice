@@ -171,27 +171,19 @@ void ASplinePropActor::BuildDeform()
 		Spline->GetLocationAndTangentAtSplinePoint(i, StartPos, StartTangent, ESplineCoordinateSpace::Local);
 		Spline->GetLocationAndTangentAtSplinePoint(NextIndex, EndPos, EndTangent, ESplineCoordinateSpace::Local);
 		
+		// 전선 처짐 - 스플라인 원본은 그대로 두고 넘길 사본만 기울인다
+		// 원본을 고치면 OnConstruction 이 돌 때마다 처짐이 누적된다
+		if (Profile->SagAmount > 0.f)
+		{
+			const float Sag = StartTangent.Size() * Profile->SagAmount;
+			
+			StartTangent.Z -= Sag;	// 아래로 향하며 출발
+			EndTangent.Z += Sag;	// 아래에서 올라오며 도착
+		}
+		
 		if (USplineMeshComponent* Seg = PropMeshBuilder::MakeSegment(this, Spline, Profile, StartPos, StartTangent, EndPos, EndTangent))
 		{
 			Segments.Add(Seg);
 		}
-		
-		// RF_Transient - 맵 파일에 저장되지 않게 한다 OnConstruction 이 어차피 매번 다시 만든다
-		USplineMeshComponent * Seg = NewObject<USplineMeshComponent>(this, NAME_None, RF_Transient);
-		
-		// 등록 전에 해야 한다. 등록 후에 부르면 경고만 나고 무시된다
-		Seg->SetMobility(EComponentMobility::Movable);
-		Seg->bSelectable = false;
-		
-		Seg->SetForwardAxis(Profile->ForwardAxis, /*bUpdateMesh*/ false);
-		Seg->SetStaticMesh(Profile->Mesh);
-		Seg->SetStartAndEnd(StartPos, StartTangent, EndPos, EndTangent);
-		
-		Seg->AttachToComponent(Spline, FAttachmentTransformRules::KeepRelativeTransform);
-		
-		// 없으면 컴포넌트는 만들어졌는데 렌더 씬에 안 들어감. 화면에 아무것도 안 보인다
-		Seg->RegisterComponent();
-		
-		Segments.Add(Seg);
 	}
 }
