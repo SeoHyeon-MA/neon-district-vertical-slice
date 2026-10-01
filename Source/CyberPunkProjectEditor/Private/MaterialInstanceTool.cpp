@@ -8,6 +8,7 @@
 #include "Factories/MaterialInstanceConstantFactoryNew.h"
 #include "MaterialEditingLibrary.h"
 #include "Engine/Texture.h"
+#include "Engine/StaticMesh.h"
 #include "Materials/MaterialInterface.h"
 #include "Materials/MaterialInstanceConstant.h"
 
@@ -19,6 +20,7 @@ UMaterialInstanceTool::UMaterialInstanceTool()
 	// 이 셋 중 하나라도 고른 상태면 우클릭 메뉴에 뜬다
 	SupportedClasses.Add(UTexture::StaticClass());
 	SupportedClasses.Add(UMaterialInterface::StaticClass());
+	SupportedClasses.Add(UStaticMesh::StaticClass());
 	SupportedClasses.Add(UMaterialInstanceToolSettings::StaticClass());
 }
 
@@ -48,7 +50,7 @@ void UMaterialInstanceTool::CreateMaterialInstances()
 
 	UE_LOG(LogMITool, Log, TEXT("부모: %s / 묶음 %d 개"), *Master->GetName(), Sets.Num());
 
-	int32 CreatedCount = 0;
+	TArray<FCreatedInstance> Created;
 
 	for (const FTextureSet& Set : Sets)
 	{
@@ -60,13 +62,16 @@ void UMaterialInstanceTool::CreateMaterialInstances()
 			PackagePath = FPackageName::GetLongPackagePath(AnyTexture->GetOutermost()->GetName());
 		}
 
-		if (CreateInstance(Set, Master, Settings, ValidParameters, PackagePath))
+		if (UMaterialInstanceConstant* Instance = CreateInstance(Set, Master, Settings, ValidParameters, PackagePath))
 		{
-			++CreatedCount;
+			Created.Add(FCreatedInstance{ Set.BaseName, Instance });
 		}
 	}
 
-	UE_LOG(LogMITool, Log, TEXT("%d 개 생성. 저장은 아직 안 됐다 — Ctrl+Shift+S"), CreatedCount);
+	UE_LOG(LogMITool, Log, TEXT("%d 개 생성. 저장은 아직 안 됐다 — Ctrl+Shift+S"), Created.Num());
+
+	// 메쉬를 같이 골랐으면 입히는 데까지, 아니면 여기서 끝난다
+	AssignToMeshes(Selected, Created, Settings);
 }
 
 UMaterialInstanceToolSettings* UMaterialInstanceTool::FindSettings(const TArray<UObject*>& Selected)
@@ -166,28 +171,53 @@ UMaterialInstanceConstant* UMaterialInstanceTool::CreateInstance(const FTextureS
 {
 	const FString AssetName = Settings->InstancePrefix + Set.BaseName;
 
-	IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
+	const FString PackageName = PackagePath + TEXT("/") + AssetName;
 
-	UMaterialInstanceConstantFactoryNew* Factory = NewObject<UMaterialInstanceConstantFactoryNew>();
-	Factory->InitialParent = Master;
+	UMaterialInstanceConstant* Instance = nullptr;
+	bool bWasExisting = false;
 
-	UObject* Created = AssetTools.CreateAsset(
-		AssetName,
-		PackagePath,
-		UMaterialInstanceConstant::StaticClass(),
-		Factory,
-		/*CallingContext*/ NAME_None,
-		/*bOverwriteExisting*/ Settings->bOverwriteExisting);
+	// 이미 있으면 지우고 다시 만들지 않고 그 자리에서 갱신한다.
+	// 한 번 돌린 뒤 메쉬에 입혀두면 그 메쉬가 참조를 쥐고 있어서, 교체하려 들면
+	// "is in use" 로 막힌다. 갱신은 참조를 그대로 두므로 그 문제가 생기지 않는다
+	if (FPackageName::DoesPackageExist(PackageName))
+	{
+		Instance = LoadObject<UMaterialInstanceConstant>(nullptr, *(PackageName + TEXT(".") + AssetName));
 
-	UMaterialInstanceConstant* Instance = Cast<UMaterialInstanceConstant>(Created);
+		if (Instance && !Settings->bUpdateExisting)
+		{
+			UE_LOG(LogMITool, Warning, TEXT("%s 가 이미 있어 건너뛴다. 갱신하려면 bUpdateExisting 을 켤 것"), *AssetName);
+			return nullptr;
+		}
+
+		if (Instance)
+		{
+			Instance->Modify();
+			bWasExisting = true;
+		}
+	}
+
 	if (!Instance)
 	{
-		UE_LOG(LogMITool, Error, TEXT("%s 생성 실패. 같은 이름이 이미 있으면 bOverwriteExisting 을 켤 것"), *AssetName);
-		return nullptr;
+		IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
+
+		UMaterialInstanceConstantFactoryNew* Factory = NewObject<UMaterialInstanceConstantFactoryNew>();
+		Factory->InitialParent = Master;
+
+		Instance = Cast<UMaterialInstanceConstant>(AssetTools.CreateAsset(
+			AssetName,
+			PackagePath,
+			UMaterialInstanceConstant::StaticClass(),
+			Factory));
+
+		if (!Instance)
+		{
+			UE_LOG(LogMITool, Error, TEXT("%s 생성 실패"), *AssetName);
+			return nullptr;
+		}
 	}
 
 	// 팩토리의 InitialParent 는 새로 만들 때만 잡는다.
-	// 덮어쓰기 경로에서는 옛 부모가 남을 수 있어 한 번 더 못박는다. 중복 호출 비용은 없다
+	// 갱신 경로에서는 옛 부모가 남아 있으므로 한 번 더 못박는다. 중복 호출 비용은 없다
 	UMaterialEditingLibrary::SetMaterialInstanceParent(Instance, Master);
 
 	for (const TPair<FName, UTexture*>& Pair : Set.ParameterToTexture)
@@ -207,7 +237,78 @@ UMaterialInstanceConstant* UMaterialInstanceTool::CreateInstance(const FTextureS
 	// 셰이더 재컴파일과 썸네일 갱신. 안 부르면 썸네일이 회색으로 남아 "안 들어갔나" 싶어진다
 	UMaterialEditingLibrary::UpdateMaterialInstance(Instance);
 
-	UE_LOG(LogMITool, Log, TEXT("만듦: %s/%s"), *PackagePath, *AssetName);
+	UE_LOG(LogMITool, Log, TEXT("%s: %s/%s"), bWasExisting ? TEXT("갱신") : TEXT("만듦"), *PackagePath, *AssetName);
 
 	return Instance;
+}
+
+void UMaterialInstanceTool::AssignToMeshes(const TArray<UObject*>& Selected, const TArray<FCreatedInstance>& Created, const UMaterialInstanceToolSettings* Settings)
+{
+	TArray<UStaticMesh*> Meshes;
+	for (UObject* Object : Selected)
+	{
+		if (UStaticMesh* Mesh = Cast<UStaticMesh>(Object))
+		{
+			Meshes.Add(Mesh);
+		}
+	}
+
+	if (Meshes.Num() == 0)
+	{
+		// 메쉬를 안 골랐으면 인스턴스를 만드는 데까지가 끝이다
+		return;
+	}
+
+	if (Created.Num() == 0)
+	{
+		UE_LOG(LogMITool, Warning, TEXT("메쉬를 골랐지만 만들어진 인스턴스가 없어 입힐 것이 없다"));
+		return;
+	}
+
+	for (UStaticMesh* Mesh : Meshes)
+	{
+		UMaterialInstanceConstant* Chosen = nullptr;
+
+		if (Created.Num() == 1)
+		{
+			// 하나뿐이면 고를 것이 없다. 메쉬 이름이 달라도 그것을 입힌다
+			Chosen = Created[0].Instance;
+		}
+		else
+		{
+			// 여럿이면 이름으로 짝을 찾는다. SM_Concrete_Wall ← Concrete
+			// 긴 쪽이 이긴다. Concrete 와 Concrete_Wet 이 함께 있으면 후자가 더 구체적인 짝이다
+			int32 BestLength = 0;
+			for (const FCreatedInstance& Candidate : Created)
+			{
+				if (Mesh->GetName().Contains(Candidate.BaseName) && Candidate.BaseName.Len() > BestLength)
+				{
+					BestLength = Candidate.BaseName.Len();
+					Chosen = Candidate.Instance;
+				}
+			}
+		}
+
+		if (!Chosen)
+		{
+			UE_LOG(LogMITool, Warning, TEXT("%s: 이름이 맞는 인스턴스를 못 찾아 건너뛴다"), *Mesh->GetName());
+			continue;
+		}
+
+		const int32 SlotCount = Mesh->GetStaticMaterials().Num();
+		if (SlotCount == 0)
+		{
+			UE_LOG(LogMITool, Warning, TEXT("%s: 머티리얼 슬롯이 없다"), *Mesh->GetName());
+			continue;
+		}
+
+		const int32 LastSlot = Settings->bAssignToAllSlots ? SlotCount - 1 : 0;
+		for (int32 i = 0; i <= LastSlot; ++i)
+		{
+			// 트랜잭션, PreEditChange, 슬롯 이름 보정까지 엔진이 안에서 처리한다
+			Mesh->SetMaterial(i, Chosen);
+		}
+
+		UE_LOG(LogMITool, Log, TEXT("입힘: %s <- %s (슬롯 %d개)"), *Mesh->GetName(), *Chosen->GetName(), LastSlot + 1);
+	}
 }

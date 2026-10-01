@@ -23,6 +23,13 @@ struct FTextureSet
 	TMap<FName, UTexture*> ParameterToTexture;
 };
 
+/** 만들어진 인스턴스 하나. 메쉬에 입힐 때 이름으로 짝을 찾아야 해서 베이스 이름을 들고 다닌다 */
+struct FCreatedInstance
+{
+	FString BaseName;
+	UMaterialInstanceConstant* Instance = nullptr;
+};
+
 /**
  *  텍스처들을 골라 우클릭하면 머티리얼 인스턴스를 만들어주는 도구.
  *
@@ -65,4 +72,10 @@ protected:
 
 	/** 묶음 하나로 머티리얼 인스턴스 에셋을 만든다. 실패하면 nullptr */
 	static UMaterialInstanceConstant* CreateInstance(const FTextureSet& Set, UMaterialInterface* Master, const UMaterialInstanceToolSettings* Settings, const TSet<FName>& ValidParameters, const FString& PackagePath);
+
+	/**
+	 *  선택 목록에 스태틱 메쉬가 있으면 만든 인스턴스를 입힌다.
+	 *  메쉬를 안 골랐으면 아무것도 하지 않는다 — 인스턴스를 만드는 데까지가 기본 동작이다.
+	 */
+	static void AssignToMeshes(const TArray<UObject*>& Selected, const TArray<FCreatedInstance>& Created, const UMaterialInstanceToolSettings* Settings);
 };

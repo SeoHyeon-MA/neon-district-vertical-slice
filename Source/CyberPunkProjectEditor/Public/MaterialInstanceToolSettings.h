@@ -53,9 +53,22 @@ public:
 	UPROPERTY(EditAnywhere, Category = "MITool|Output", meta = (ContentDir))
 	FDirectoryPath OutputFolder;
 
-	/** 같은 이름의 인스턴스가 이미 있을 때 덮어쓸지. 꺼두면 건너뛰고 경고만 남긴다 */
+	/**
+	 *  같은 이름의 인스턴스가 이미 있을 때 그 자리에서 갱신할지. 꺼두면 건너뛰고 경고만 남긴다.
+	 *  지우고 다시 만들지 않는 이유는, 이미 메쉬에 입혀둔 인스턴스는 그 메쉬가 참조를 쥐고 있어
+	 *  교체하려 들면 "is in use" 로 막히기 때문이다. 갱신은 참조를 그대로 둔다.
+	 */
 	UPROPERTY(EditAnywhere, Category = "MITool|Output")
-	bool bOverwriteExisting = false;
+	bool bUpdateExisting = false;
+
+	// ── 메쉬에 입히기 ──
+
+	/**
+	 *  스태틱 메쉬를 같이 선택했을 때, 만든 인스턴스를 모든 머티리얼 슬롯에 넣을지.
+	 *  끄면 0번 슬롯만 바꾼다. 슬롯이 여럿인 메쉬를 한 머티리얼로 통째로 덮고 싶지 않을 때 쓴다.
+	 */
+	UPROPERTY(EditAnywhere, Category = "MITool|Assign")
+	bool bAssignToAllSlots = true;
 
 public:
 
