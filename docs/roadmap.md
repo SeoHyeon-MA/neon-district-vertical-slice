@@ -63,7 +63,8 @@
 [12] 배경 제작 도구 ──┬── 12-A 스플라인 프롭 (진행 중)
                       ├── 12-B 바닥 산포 (PCG)
                       ├── 12-C 월드 기준 타일 머티리얼
-                      └── 12-D 프롭 대량 배치 예산 (Nanite)
+                      ├── 12-D 프롭 대량 배치 예산 (Nanite)
+                      └── 12-E 머티리얼 인스턴스 생성 도구 ✓ (에디터 모듈)
                              └──> 아트 본작업(10/5~)의 생산성 전제
 ```
 
@@ -80,7 +81,7 @@
 | 9 | 최적화 전후 측정 | P2 | 아트 | 미착수 |
 | 10 | Variant_Horror 제거 | P2 | – | **완료** |
 | 11 | 학습용 폴더 쿠킹 분리 | P2 | – | **완료** |
-| 12 | 배경 제작 도구 (스플라인 프롭·산포·타일 머티리얼) | P1 | 아트 착수 | 착수 — 12-A 진행 중 (9/30) |
+| 12 | 배경 제작 도구 (스플라인 프롭·산포·타일 머티리얼·MI 생성) | P1 | 아트 착수 | **12-A·12-E 완료 (10/1)** — 12-B·C·D 미착수 |
 
 주간 배정은 4절.
 
@@ -582,17 +583,21 @@ README의 Disclaimer가 밝힌 대로 이 프로젝트의 리소스는 직접 �
 | Deform | 메쉬를 스플라인 모양대로 휨 | 구간별 `USplineMeshComponent` | 파이프 본체, 늘어진 전선, 펜스 그물망 |
 
 - [x] `UPropProfileDataAsset` — 메쉬·모드·간격·정렬·흔들림·렌더링 옵션 (`Prop|Mesh/Placement/Variation/Rendering` 4그룹)
-- [ ] `ASplinePropActor` — `USplineComponent` 루트 + `OnConstruction` 재빌드
-- [ ] Repeat 배치 — **거리 기준** 루프(`GetLocationAtDistanceAlongSpline`). 점 개수 기준으로 돌면 간격이 들쭉날쭉해진다
-- [ ] `bFitToSpline` — 간격을 길이에 맞춰 미세 조정해 끝의 자투리 제거
-- [ ] Deform 배치 — 구간별 위치·**탄젠트** 전달. 위치만 주면 곡선이 각져 보인다
-- [ ] `PropMeshBuilder` — 그래픽 층 분리 (`namespace` + 자유 함수, UCLASS 아님)
-- [ ] 렌더링 옵션 반영 — `SetCastShadow`, 콜리전, `SetCullDistances`
-- [ ] 전선 처짐 — 읽어온 탄젠트의 Z만 지역에서 기울인다(시작은 빼고 끝은 더한다). 처짐은 탄젠트 크기에 비례시켜 구간이 길수록 더 늘어지게 한다.
+- [x] `ASplinePropActor` — `USplineComponent` 루트 + `OnConstruction` 재빌드
+- [x] Repeat 배치 — **거리 기준** 루프(`GetLocationAtDistanceAlongSpline`). 점 개수 기준으로 돌면 간격이 들쭉날쭉해진다
+- [x] `bFitToSpline` — 간격을 길이에 맞춰 미세 조정해 끝의 자투리 제거
+- [x] Deform 배치 — 구간별 위치·**탄젠트** 전달. 위치만 주면 곡선이 각져 보인다
+- [x] `PropMeshBuilder` — 그래픽 층 분리 (`namespace` + 자유 함수, UCLASS 아님)
+- [x] 렌더링 옵션 반영 — `SetCastShadow`, 콜리전, `SetCullDistances`
+- [x] 전선 처짐 — 읽어온 탄젠트의 Z만 지역에서 기울인다(시작은 빼고 끝은 더한다). 처짐은 탄젠트 크기에 비례시켜 구간이 길수록 더 늘어지게 한다.
   ~~`SetTangentsAtSplinePoint`로 스플라인 자체를 처지게 만듦~~ — **틀렸다 (10/1).** `OnConstruction`이 점을 드래그할 때마다 돌기 때문에
   원본 탄젠트를 고치면 처짐이 무한히 누적되고, `SagAmount`를 0으로 되돌려도 원래 모양으로 돌아오지 않는다. 사용자가 찍은 스플라인은 원본으로 두고 넘기는 사본만 고친다
 - [ ] Per-instance custom data로 네온 색·Emissive 세기 변화 (드로우콜 1회 유지, 해석은 머티리얼 쪽)
-- [ ] `FRandomStream(Seed)` 결정적 난수 — `FMath::FRand()`를 쓰면 스플라인을 건드릴 때마다 전부 바뀌어 작업이 불가능하다
+- [x] `FRandomStream(Seed)` 결정적 난수 — `FMath::FRand()`를 쓰면 스플라인을 건드릴 때마다 전부 바뀌어 작업이 불가능하다
+- [x] 재빌드 수명 관리 — `ClearBuilt()`가 `Segments` 배열이 아니라 `GetComponents<USplineMeshComponent>()`로 실제 컴포넌트를 쓸어낸다.
+  배열은 `Transient`라 핫 리로드·Undo 로 비워지는데 컴포넌트는 살아남아 고아가 된다
+- [x] `PostEditUndo()` 오버라이드 — 언두는 스플라인만 되돌리므로 파생된 메쉬는 다시 지어야 한다
+- [x] `UFUNCTION(CallInEditor)` Rebuild 버튼 — 데이터에셋 **자신의** 값을 고쳐도 액터에 알림이 가지 않는다. 자동 갱신은 미착수
 
 **완료 기준** — 레벨에서 스플라인을 긋고 프로파일만 바꿔 펜스·파이프·전선 세 종류를 코드 수정 없이 배치할 수 있다.
 
@@ -601,6 +606,10 @@ README의 Disclaimer가 밝힌 대로 이 프로젝트의 리소스는 직접 �
 > `OnConstruction`은 스플라인 점을 하나 움직일 때마다 돌기 때문에 이전 컴포넌트를 `DestroyComponent`로 치우지 않으면 에디터가 죽는다.
 > `TArray<USplineMeshComponent*>`에는 `UPROPERTY()`를 반드시 붙인다 — 없으면 GC가 수거해 크래시한다.
 > `EditCondition` 문자열은 컴파일러가 검사하지 않으므로 열거형 이름 오타가 에디터에서야 드러난다.
+> 리팩터링으로 생성 코드를 `PropMeshBuilder`로 옮길 때 **옛 블록을 지우지 않으면** 구간마다 메쉬가 두 장 깔리고,
+> 그중 하나가 렌더링 설정을 안 받아 "그림자가 안 꺼진다"로 나타난다. `if` 조건문 안에서 선언한 변수라 이름 충돌이 없어 조용히 통과한다.
+> 핫 리로드가 남긴 번호 붙은 DLL(`UnrealEditor-CyberPunkProject-0002.dll`)을 에디터가 쥐고 있으면 UBT가 삭제에 실패해
+> `Result: Failed (OtherCompilationError)`로 **컴파일 전에** 멈춘다. 코드 오류가 아니다. 에디터를 닫고 Rider에서만 빌드한다.
 
 #### 12-B. 바닥 랜덤 산포 — 쓰레기, 잔해
 
@@ -647,6 +656,64 @@ Nanite를 전제하면 프롭 개수와 폴리곤 예산을 훨씬 느슨하게 
 - [ ] 9번 측정 항목에 "도구로 배치한 프롭" 케이스 포함
 
 **완료 기준** — 프롭 수를 늘려도 GPU Frame Time이 목표 안에 있고, 어떤 카테고리를 어떤 방식으로 그리는지 근거가 문서에 남는다.
+
+---
+
+#### 12-E. 머티리얼 인스턴스 생성 도구 — 텍스처 이름에서 자동으로
+
+12-C가 "마스터 하나 + 인스턴스 여럿" 구조로 가면 그 인스턴스를 손으로 만드는 것이 다음 병목이 된다.
+텍스처를 골라 우클릭하면 이름 규칙을 읽어 파라미터에 꽂힌 인스턴스를 만들어내게 한다.
+
+```
+T_Concrete_BC, T_Concrete_N, T_Concrete_ORM  +  DA_MITool  (+ 마스터)
+        ↓  우클릭 → Scripted Asset Actions
+MI_Concrete  (부모 지정, BaseColor/Normal/ORM 에 텍스처가 꽂힌 상태)
+```
+
+**에디터 전용 모듈을 따로 세운다.** `UnrealEd`, `Blutility`, `AssetTools`, `MaterialEditor` 는 에디터에만 존재하므로
+런타임 모듈에 넣으면 패키징에서 링크가 깨진다. `#if WITH_EDITOR` 로 감싸는 방법도 있지만 의존성이 섞이고,
+`Type: Editor` 모듈로 가르면 애초에 게임 빌드 대상에서 빠진다. `LevelArt/` 를 `NeonDistrict/` 와 가른 것의 연장이다.
+
+```
+Source/CyberPunkProject/         Runtime  게임 코드 (LevelArt 포함)
+Source/CyberPunkProjectEditor/   Editor   에디터 도구만
+```
+
+접미사와 파라미터 이름의 매핑은 **설정 데이터에셋이 들고 도구는 규칙을 모른다.**
+외부에서 받은 에셋마다 관례가 다르고(`_BC` / `_D` / `_Albedo`) 마스터의 파라미터 이름도 작업 중에 바뀌는데,
+코드에 박으면 그때마다 빌드하고 에디터를 다시 띄워야 한다. 12-A의 `UPropProfileDataAsset` 과 같은 패턴이다.
+
+- [x] 에디터 전용 모듈 `CyberPunkProjectEditor` 신설 (`.uproject` 등록 + Target `ExtraModuleNames` + `Build.cs` + `IMPLEMENT_MODULE`)
+- [x] `UMaterialInstanceToolSettings` — 기본 마스터, 접미사→파라미터 맵, 접두사, 출력 폴더, 덮어쓰기 여부
+- [x] `UMaterialInstanceTool` — 선택 목록에서 설정·마스터·텍스처를 모두 받는다. 함수 인자로 받으면 별도 입력 창이 떠서 동선이 길어진다
+- [x] 이름 묶기 — 접미사를 떼어 베이스 이름으로 그룹화. **가장 긴 접미사가 이긴다** (`_N` 과 `_Normal` 이 함께 있으면 후자 우선)
+- [x] 규칙에 없는 접미사는 건너뛰되 **이름을 로그에 남긴다**. 조용히 무시하면 "왜 이것만 안 들어갔지" 로 돌아온다
+- [x] 에셋 생성 — `UMaterialInstanceConstantFactoryNew` + `IAssetTools::CreateAsset`, 출력 폴더가 비면 텍스처 옆에 만든다
+- [x] **마스터에 그 이름의 텍스처 파라미터가 실제로 있는지 검사** — 없는 이름에 꽂으면 엔진이 에러 없이 무시한다
+- [x] `UpdateMaterialInstance()` 로 셰이더 재컴파일·썸네일 갱신
+- [ ] **B안 — `UToolMenus` 로 우클릭 메뉴를 직접 등록**하고 `UAssetActionUtility` 의존을 걷어낸다. 지금은 빈 에디터 유틸리티 블루프린트로 등록을 때우고 있다
+- [ ] 저장 자동화 여부 결정 — 지금은 메모리에만 만들고 사용자가 확인 후 저장한다. 자동 저장하면 `EditorScriptingUtilities` 의존이 붙고 도구가 디스크를 건드리는 범위가 넓어진다
+- [ ] 12-C 마스터가 확정되면 그 파라미터 이름에 맞춰 `DA_MITool` 기본값 정리
+
+**완료 기준** — 텍스처 세트를 골라 우클릭 한 번으로, 파라미터가 채워진 머티리얼 인스턴스가 만들어진다.
+
+> **걸린 곳** — **네이티브 C++ `UAssetActionUtility` 클래스는 Scripted Asset Actions 메뉴에 뜨지 않는다.**
+> `FBlutilityMenuExtensions::GetBlutilityClasses()` 가 에셋 레지스트리에서 `UEditorUtilityBlueprint` 에셋만 훑고
+> 네이티브 클래스는 열거하지 않기 때문이다. 그 C++ 클래스를 부모로 하는 **빈 에디터 유틸리티 블루프린트 하나**를 만들어
+> 저장해두면 메뉴에 올라오며, 그래프는 비워둬도 된다(로직은 전부 C++에 남는다). 저장하지 않으면 레지스트리에 태그가 없어 역시 안 뜬다.
+> 엔진 소스를 읽기 전에는 알 길이 없는 동작이라, 다음에 에디터 도구를 만들 때 똑같이 걸린다.
+>
+> 모듈 폴더에 컴파일할 `.cpp` 가 하나도 없으면 UBT 가 모듈을 통째로 건너뛴다. 빌드는 "성공" 으로 끝나는데 DLL 이 없다.
+> `IMPLEMENT_MODULE` 한 줄짜리 파일이 그래서 필요하다.
+>
+> `*_API` 매크로는 모듈마다 다르다. 새 모듈에서는 `CYBERPUNKPROJECTEDITOR_API` 이며,
+> 런타임 모듈 것을 그대로 복사해 오면 링크 에러가 나는데 메시지가 원인을 짚어주지 않는다.
+>
+> 모듈을 처음 세울 때는 Rider 솔루션 트리에서 폴더를 만들 수 없다. 솔루션이 아직 그 모듈을 모르기 때문이다.
+> 파일 탐색기나 명령으로 만든 뒤 Generate Visual Studio project files 를 돌려야 Rider 가 인식한다.
+>
+> 콘텐츠 브라우저의 `C++ Classes` 폴더는 모듈 목록이 아니라 **리플렉션된 클래스가 있는 모듈**만 보여준다.
+> `UCLASS` 가 하나도 없는 모듈은 DLL 이 멀쩡히 로드돼 있어도 거기 안 나타난다. 모듈 로드 확인은 Window → Developer Tools → Modules 로 한다.
 
 ---
 
