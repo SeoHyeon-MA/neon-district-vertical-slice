@@ -3,6 +3,8 @@
 #include "Modules/ModuleManager.h"
 #include "ToolMenus.h"
 #include "ContentBrowserMenuContexts.h"
+#include "AssetRegistry/AssetData.h"
+#include "Engine/Texture.h"
 #include "MaterialInstanceTool.h"
 
 #define LOCTEXT_NAMESPACE "CyberPunkProjectEditor"
@@ -62,6 +64,24 @@ private:
 					InSection.FindContext<UContentBrowserAssetContextMenuContext>();
 
 				if (!Context)
+				{
+					return;
+				}
+
+				// 선택에 텍스처가 하나도 없으면 항목을 만들지 않는다. 이 도구가 하는 일이
+				// "텍스처에서 인스턴스를 만든다" 라서, 텍스처가 없으면 할 일 자체가 없다.
+				// 설정 에셋·마스터·메쉬는 텍스처와 함께 골랐을 때 의미가 생기는 보조 선택이다.
+				//
+				// FAssetData 만 보고 판단한다 — 여기서 로드하면 폴더를 통째로 고른 우클릭 한 번에
+				// 수백 장을 읽게 된다. IsInstanceOf 는 기본값이 EResolveClass::No 라 클래스를 로드하지 않고,
+				// 상속도 따지므로 UTexture2D·UTextureCube 가 모두 걸린다
+				const bool bHasTexture = Context->SelectedAssets.ContainsByPredicate(
+					[](const FAssetData& Asset)
+					{
+						return Asset.IsInstanceOf<UTexture>();
+					});
+
+				if (!bHasTexture)
 				{
 					return;
 				}

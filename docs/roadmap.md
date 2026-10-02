@@ -698,7 +698,9 @@ Source/CyberPunkProjectEditor/   Editor   에디터 도구만
 - [x] **이미 있는 인스턴스는 지우지 않고 갱신** — `bUpdateExisting`. 아래 걸린 곳 참고
 - [x] **`UToolMenus` 로 우클릭 메뉴를 직접 등록** (10/2) — 모듈이 `IModuleInterface` 를 구현하고 `ContentBrowser.AssetContextMenu` 를 확장한다.
   `Blutility` 의존과 껍데기 블루프린트가 사라졌다. 로직은 한 줄도 바뀌지 않았고, `UMaterialInstanceTool` 은 `PropMeshBuilder` 처럼 네임스페이스가 되어 헤더가 62줄에서 20줄로 줄었다
-- [ ] 메뉴 필터 — `SupportedClasses` 가 사라지면서 항목이 **모든 에셋 타입의 우클릭에 뜬다**. 동적 엔트리 안에서 `FAssetData` 만으로 (로드하지 않고) 텍스처 유무를 보고 숨긴다
+- [x] 메뉴 필터 (10/2) — 선택에 텍스처가 하나도 없으면 항목을 만들지 않는다. `FAssetData::IsInstanceOf<UTexture>()` 는 기본값이 `EResolveClass::No` 라
+  **에셋을 로드하지 않고** 판단한다. 여기서 로드하면 텍스처 수백 장이 든 폴더를 고른 우클릭 한 번에 전부 읽게 된다.
+  Blutility 의 `SupportedClasses` 는 "넷 중 아무거나" 였지만, 직접 등록하게 된 지금은 "텍스처가 있을 때만" 이라는 정확한 조건을 걸 수 있다
 - [ ] 저장 자동화 여부 결정 — 지금은 메모리에만 만들고 사용자가 확인 후 저장한다. 자동 저장하면 `EditorScriptingUtilities` 의존이 붙고 도구가 디스크를 건드리는 범위가 넓어진다
 - [ ] 12-C 마스터가 확정되면 그 파라미터 이름에 맞춰 `DA_MITool` 기본값 정리
 
