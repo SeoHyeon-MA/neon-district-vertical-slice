@@ -691,7 +691,14 @@ Source/CyberPunkProjectEditor/   Editor   에디터 도구만
 - [x] 에셋 생성 — `UMaterialInstanceConstantFactoryNew` + `IAssetTools::CreateAsset`, 출력 폴더가 비면 텍스처 옆에 만든다
 - [x] **마스터에 그 이름의 텍스처 파라미터가 실제로 있는지 검사** — 없는 이름에 꽂으면 엔진이 에러 없이 무시한다
 - [x] `UpdateMaterialInstance()` 로 셰이더 재컴파일·썸네일 갱신
-- [ ] **B안 — `UToolMenus` 로 우클릭 메뉴를 직접 등록**하고 `UAssetActionUtility` 의존을 걷어낸다. 지금은 빈 에디터 유틸리티 블루프린트로 등록을 때우고 있다
+- [x] **메쉬에 입히기** (10/1) — 스태틱 메쉬를 함께 고르면 만든 인스턴스를 입힌다. 메쉬를 안 골랐으면 만드는 데까지가 끝이다
+- [x] 짝 찾기 — 인스턴스가 하나면 고를 것이 없으니 모든 메쉬에, 여럿이면 메쉬 이름에 들어 있는 베이스 이름 중 **긴 쪽이 이긴다**. 못 찾으면 이름을 로그에 남기고 건너뛴다
+- [x] 입히기는 `UStaticMesh::SetMaterial()` 로 — 배열을 직접 쓰면 트랜잭션·`PreEditChange`·슬롯 이름 보정이 빠지고 **되돌리기가 안 먹는다**
+- [x] `bAssignToAllSlots` — 슬롯이 여럿인 메쉬를 한 머티리얼로 통째로 덮고 싶지 않을 때 0번만 바꾼다
+- [x] **이미 있는 인스턴스는 지우지 않고 갱신** — `bUpdateExisting`. 아래 걸린 곳 참고
+- [x] **`UToolMenus` 로 우클릭 메뉴를 직접 등록** (10/2) — 모듈이 `IModuleInterface` 를 구현하고 `ContentBrowser.AssetContextMenu` 를 확장한다.
+  `Blutility` 의존과 껍데기 블루프린트가 사라졌다. 로직은 한 줄도 바뀌지 않았고, `UMaterialInstanceTool` 은 `PropMeshBuilder` 처럼 네임스페이스가 되어 헤더가 62줄에서 20줄로 줄었다
+- [ ] 메뉴 필터 — `SupportedClasses` 가 사라지면서 항목이 **모든 에셋 타입의 우클릭에 뜬다**. 동적 엔트리 안에서 `FAssetData` 만으로 (로드하지 않고) 텍스처 유무를 보고 숨긴다
 - [ ] 저장 자동화 여부 결정 — 지금은 메모리에만 만들고 사용자가 확인 후 저장한다. 자동 저장하면 `EditorScriptingUtilities` 의존이 붙고 도구가 디스크를 건드리는 범위가 넓어진다
 - [ ] 12-C 마스터가 확정되면 그 파라미터 이름에 맞춰 `DA_MITool` 기본값 정리
 
@@ -711,6 +718,12 @@ Source/CyberPunkProjectEditor/   Editor   에디터 도구만
 >
 > 모듈을 처음 세울 때는 Rider 솔루션 트리에서 폴더를 만들 수 없다. 솔루션이 아직 그 모듈을 모르기 때문이다.
 > 파일 탐색기나 명령으로 만든 뒤 Generate Visual Studio project files 를 돌려야 Rider 가 인식한다.
+>
+> **에셋을 덮어쓰려 들면 `is in use` 로 막힌다.** 메쉬에 입히는 기능이 들어간 순간 1회차와 2회차가 충돌했다 —
+> 1회차에 만든 인스턴스를 메쉬에 입히면 그 메쉬가 참조를 쥐는데, `IAssetTools::CreateAsset` 의 `bOverwriteExisting` 은
+> 기존 에셋을 **지우고** 다시 만드는 경로라 참조가 있으면 애초에 불가능하다.
+> 기존 에셋을 열어 그 자리에서 갱신하도록 바꿔(`bUpdateExisting`) 삭제 경로를 아예 없앴다.
+> 동작 면에서도 이쪽이 맞다 — 도구를 다시 돌리는 것은 보통 "텍스처 바뀐 것 반영해줘" 지 "새 에셋 만들어줘" 가 아니다.
 >
 > 콘텐츠 브라우저의 `C++ Classes` 폴더는 모듈 목록이 아니라 **리플렉션된 클래스가 있는 모듈**만 보여준다.
 > `UCLASS` 가 하나도 없는 모듈은 DLL 이 멀쩡히 로드돼 있어도 거기 안 나타난다. 모듈 로드 확인은 Window → Developer Tools → Modules 로 한다.
