@@ -3,79 +3,18 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AssetActionUtility.h"
-#include "MaterialInstanceTool.generated.h"
-
-// ── 전방 선언 ──
-class UTexture;
-class UMaterialInterface;
-class UMaterialInstanceConstant;
-class UMaterialInstanceToolSettings;
 
 /**
- *  한 묶음 — 베이스 이름 하나가 갖는 "파라미터 → 텍스처" 들.
- *  함수 사이에서만 오가는 중간 결과라 USTRUCT 으로 만들지 않는다.
- *  에디터에 노출할 일도, 저장할 일도 없다.
- */
-struct FTextureSet
-{
-	FString BaseName;
-	TMap<FName, UTexture*> ParameterToTexture;
-};
-
-/** 만들어진 인스턴스 하나. 메쉬에 입힐 때 이름으로 짝을 찾아야 해서 베이스 이름을 들고 다닌다 */
-struct FCreatedInstance
-{
-	FString BaseName;
-	UMaterialInstanceConstant* Instance = nullptr;
-};
-
-/**
- *  텍스처들을 골라 우클릭하면 머티리얼 인스턴스를 만들어주는 도구.
+ *  텍스처 이름 규칙에서 머티리얼 인스턴스를 만든다.
+ *  선택 목록에 메쉬가 있으면 입히는 데까지, 없으면 만드는 데까지 한다.
  *
- *  텍스처 · 설정 에셋 · (선택) 마스터 머티리얼을 함께 선택한 상태에서
- *  Scripted Asset Actions 메뉴로 실행한다. 함수 인자로 받지 않고 선택 목록에서
- *  전부 찾아내는 이유는, 인자가 있으면 별도 입력 창이 떠서 동선이 길어지기 때문이다.
+ *  상태가 없으므로 UCLASS 가 아니라 자유 함수다. 우클릭 메뉴는 모듈이 UToolMenus 로
+ *  직접 등록하므로 리플렉션도 필요 없다. LevelArt 의 PropMeshBuilder 와 같은 모양이다.
  *
- *  접미사와 파라미터 이름의 규칙은 설정 에셋이 들고 있고 이 클래스는 규칙을 모른다.
+ *  밖에서 부르는 것은 이 하나뿐이고, 묶기·생성·입히기 헬퍼와 중간 구조체는 전부 .cpp 안에 있다.
  */
-UCLASS()
-class CYBERPUNKPROJECTEDITOR_API UMaterialInstanceTool : public UAssetActionUtility
+namespace MaterialInstanceTool
 {
-	GENERATED_BODY()
-
-public:
-
-	// ④ 생성자
-	UMaterialInstanceTool();
-
-	// ⑧ 공개 API — 우클릭 메뉴에 올라가는 항목
-
-	UFUNCTION(CallInEditor, Category = "MITool")
-	void CreateMaterialInstances();
-
-protected:
-
-	// ⑩ 내부 구현
-
-	/** 선택 목록에서 설정 에셋을 집어낸다. 없으면 nullptr */
-	static UMaterialInstanceToolSettings* FindSettings(const TArray<UObject*>& Selected);
-
-	/** 선택 목록의 마스터가 우선, 없으면 설정의 DefaultMaster */
-	static UMaterialInterface* FindMaster(const TArray<UObject*>& Selected, const UMaterialInstanceToolSettings* Settings);
-
-	/** 텍스처들을 베이스 이름으로 묶는다. 접미사가 규칙에 없으면 건너뛴다 */
-	static void GroupTextures(const TArray<UObject*>& Selected, const UMaterialInstanceToolSettings* Settings, TArray<FTextureSet>& OutSets);
-
-	/** 마스터가 가진 텍스처 파라미터 이름들을 모은다. 없는 이름에 꽂으면 조용히 무시되므로 미리 거른다 */
-	static void CollectTextureParameterNames(UMaterialInterface* Master, TSet<FName>& OutNames);
-
-	/** 묶음 하나로 머티리얼 인스턴스 에셋을 만든다. 실패하면 nullptr */
-	static UMaterialInstanceConstant* CreateInstance(const FTextureSet& Set, UMaterialInterface* Master, const UMaterialInstanceToolSettings* Settings, const TSet<FName>& ValidParameters, const FString& PackagePath);
-
-	/**
-	 *  선택 목록에 스태틱 메쉬가 있으면 만든 인스턴스를 입힌다.
-	 *  메쉬를 안 골랐으면 아무것도 하지 않는다 — 인스턴스를 만드는 데까지가 기본 동작이다.
-	 */
-	static void AssignToMeshes(const TArray<UObject*>& Selected, const TArray<FCreatedInstance>& Created, const UMaterialInstanceToolSettings* Settings);
-};
+	/** 설정 에셋 · 마스터 · 텍스처 · (선택) 스태틱 메쉬가 섞인 선택 목록을 그대로 받는다 */
+	void CreateMaterialInstances(const TArray<UObject*>& Selected);
+}

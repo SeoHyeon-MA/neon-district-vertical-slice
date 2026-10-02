@@ -17,9 +17,10 @@ public class CyberPunkProjectEditor : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[] {
 			"UnrealEd",
-			"Blutility",
 			"AssetTools",
 			"MaterialEditor",
+			"ToolMenus",
+			"ContentBrowser",
 			"Slate",
 			"SlateCore"
 		});
