@@ -1637,3 +1637,119 @@ public:
 피격 시 가장자리가 붉게, 체력 바 감소 → 사망 시 2초 암전 후 부활하며 화면이 걷히고 **모든 위젯이 다시 붙음** →
 열쇠·데이터칩 획득 시 하단에 한 줄 → 복귀 대화 종료 시 `MISSION COMPLETE` + 랭크 + 사망 횟수 →
 화면에 템플릿 위젯이 하나도 없음.
+
+---
+
+## 15. 트랜스폼이 데리고 오는 것 — 부활 스케일과 문 경첩
+
+10/6에 잡은 두 버그. 증상은 전혀 달랐지만 원인이 같은 종류였다. 커밋 `71f2ba0`.
+
+> **트랜스폼은 의도한 것보다 많은 걸 들고 다닌다.**
+> 위치만 쓰려고 넘긴 트랜스폼이 스케일을 물고 왔고, 회전량으로 쓰려던 값이 배치 회전과 섞였다.
+
+### 15-1. 부활하면 플레이어가 옆으로 늘어난다
+
+**증상** — 미션을 받고 구역에 들어간 뒤 죽으면, 부활한 플레이어의 **팔이 화면을 가로질러 뻗었다.**
+미션 밖에서 죽으면 멀쩡했다.
+
+**원인** — 팔이 길어진 게 아니라 캐릭터 전체가 늘어나 있었다.
+
+```text
+부활한 폰 scale = (1.0, 2.4258, 1.0)
+
+WarehouseMission 액터 scale = (1, 2.4258, 1)   ← 진입 트리거를 입구 폭에 맞추려고 늘림
+   └ RestartPoint (UArrowComponent)            ← 자식이라 스케일을 물려받는다
+```
+
+체크포인트는 그 화살표의 **월드 트랜스폼 전체**였다.
+
+```cpp
+GameMode->SetCheckpoint(RestartPoint->GetComponentTransform());
+```
+
+`RestartPlayerAtTransform`은 이 트랜스폼으로 폰을 스폰하고, **트랜스폼에는 스케일이 들어 있다.**
+미션 밖에서는 체크포인트가 없어 `PlayerStart`(스케일 1)를 쓰므로 멀쩡했다 — "미션 받고 들어간 뒤에만"이라는 조건이 정확히 이것이었다.
+
+**해결** — 받는 쪽에서 막는다. 호출하는 쪽이 매번 기억해야 하는 규칙은 언젠가 잊힌다.
+
+```cpp
+void ANeonDistrictGameMode::SetCheckpoint(const FTransform& NewCheckpoint)
+{
+	Checkpoint = NewCheckpoint;
+
+	// 스케일은 버린다. 체크포인트가 부모 액터의 스케일을 물고 오면
+	// RestartPlayerAtTransform 이 그 스케일로 폰을 스폰해 플레이어가 늘어난다
+	Checkpoint.SetScale3D(FVector::OneVector);
+
+	bHasCheckpoint = true;
+}
+```
+
+**왜 팔로 보였나.** 1인칭 팔은 자기 애니메이션이 없다 — `ABP_FP_Weapon`이 `CopyPoseFromMesh`로 3인칭 메시의 포즈를 복사한다(7-E 참조).
+그래서 3인칭 캐릭터가 늘어나면 1인칭 팔도 같이 늘어나 화면에 드러난다. **보이는 곳과 고칠 곳이 달랐다.**
+
+### 15-2. 문이 조금만 열린다
+
+**증상** — `OpenAngle = -100`인데 문이 10도쯤만 열렸다. 그 전에 `+100`일 때는 반대로 **플레이어를 덮쳐** 끼였다.
+
+**원인** — `OpenAngle`이 "얼마나 열리는가"가 아니라 "최종 Yaw"로 쓰이고 있었다.
+
+```cpp
+FRotator Rot = Hinge->GetRelativeRotation();                        // 액터 배치각 -90 에서 시작
+Rot.Yaw = FMath::FInterpConstantTo(Rot.Yaw, OpenAngle, ...);        // 목표가 그대로 -100
+```
+
+`Hinge`가 루트 컴포넌트라 상대 회전이 곧 **액터의 배치 회전**이다. 그 문은 레벨에 `Yaw -90`으로 놓여 있었다.
+
+| `OpenAngle` | 실제 회전량 | 결과 |
+|---|---|---|
+| `-100` | -90 → -100 = **10도** | 거의 안 열림 |
+| `+100` | -90 → +100 = **190도** | 반 바퀴 돌아 플레이어를 쓸고 지나감 |
+
+**해결** — 닫힌 각도를 기억하고 거기서 더한다. 그래야 문을 레벨에 어떻게 돌려 놓아도 `OpenAngle`이 "열리는 양"이 된다.
+
+```cpp
+void AWarehouseDoor::BeginPlay()
+{
+	Super::BeginPlay();
+
+	ClosedYaw = Hinge->GetRelativeRotation().Yaw;
+	CurrentYaw = ClosedYaw;
+}
+
+void AWarehouseDoor::Tick(float DeltaSeconds)
+{
+	const float TargetYaw = ClosedYaw + OpenAngle;
+
+	// 각도를 우리가 센다. GetRelativeRotation 은 정규화된 값을 주므로
+	// -190 이 +170 으로 돌아와, 그걸 되읽어 쫓으면 문이 반대로 한 바퀴 돈다
+	CurrentYaw = FMath::FInterpConstantTo(CurrentYaw, TargetYaw, DeltaSeconds, OpenSpeed);
+
+	FRotator Rot = Hinge->GetRelativeRotation();
+	Rot.Yaw = CurrentYaw;
+	Hinge->SetRelativeRotation(Rot);
+
+	if (FMath::IsNearlyEqual(CurrentYaw, TargetYaw))
+	{
+		SetActorTickEnabled(false);
+	}
+}
+```
+
+**각도를 되읽지 않는 것**이 핵심이다. `FRotator`는 자세를 여러 숫자로 표현할 수 있고 `GetRelativeRotation()`은 정규화된 쪽을 돌려준다.
+대화창 타이핑 작업에서 `RInterpTo`를 `FQuat::Slerp`로 바꾼 것과 같은 함정이다 — **회전을 읽어서 쫓지 말고, 우리가 세어서 쓴다.**
+
+### 15-3. 조사에서 배운 것
+
+**첫 가설이 틀렸다.** 처음에는 "구간 리셋(데이터 레이어 재활성화 + 강제 GC)이 부활과 겹쳐서"라고 보고
+`SetupSegment()`를 새 폰 준비 이후로 미루는 수정까지 넣었다. 증상은 그대로였고, 그 수정은 되돌렸다.
+
+왜 잘못 짚었나 — **대조 실험이 깨끗하지 않았다.** `SetupSegment()`를 주석 처리하고 재 봤을 때 팔이 정상이어서 원인으로 단정했는데,
+그 실행에서는 미션이 `InProgress`에 도달하지 않아 **체크포인트 자체가 없었다.** 부활 위치가 체크포인트가 아닌 것을 보고도 넘어갔다.
+한 번에 한 변수만 바뀌었는지는 결과가 아니라 **중간 상태로** 확인해야 한다.
+
+**해결의 실마리는 비율이었다.** 팔 길이가 28.3 → 64.5, 약 **2.28배**. "뼈가 늘어났다"가 아니라 "전부 늘어났다"로 보이는 숫자다.
+폰의 `GetActorScale3D()`를 한 번 찍자 `(1, 2.4258, 1)`이 나왔다. 증상을 말로 쫓는 것보다 **재서 비율을 보는 쪽**이 빨랐다.
+
+**측정 방법** — 에디터에 붙어 런타임 값을 읽었다. 팔 자세는 `upperarm_r`과 `hand_r` 두 소켓의 월드 거리로 수치화했다.
+"팔이 이상하다"는 눈으로는 애매하지만 `28.3`과 `64.5`는 애매하지 않다. **눈으로 보는 증상에 숫자를 붙이면 재현과 검증이 둘 다 쉬워진다.**
