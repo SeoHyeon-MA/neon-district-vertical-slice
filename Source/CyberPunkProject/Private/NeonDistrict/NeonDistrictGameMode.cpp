@@ -20,6 +20,11 @@ ANeonDistrictGameMode::ANeonDistrictGameMode()
 void ANeonDistrictGameMode::SetCheckpoint(const FTransform& NewCheckpoint)
 {
 	Checkpoint = NewCheckpoint;
+	
+	// 스케일은 버린다. 체크포인트가 부모 액터의 스케일을 물고 오면
+	// RestartPlayerAtTransform 이 그 스케일로 폰을 스폰해 플레이어가 늘어난다
+	Checkpoint.SetScale3D(FVector::OneVector);
+	
 	bHasCheckpoint = true;
 }
 

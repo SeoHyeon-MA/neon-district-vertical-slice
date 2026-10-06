@@ -42,6 +42,7 @@ public:
 	AWarehouseDoor();
 	
 	//~ Begin AActor Interface
+	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
 	//~ End AActor Interface
 	
@@ -54,5 +55,11 @@ public:
 private:
 	//키를 가진 단게인가
 	bool HasKey() const;
+	
+	// 레벨에 놓인 각도. 여기서 OpenAngle 만큼 더 돈다
+	float ClosedYaw = 0.f;
+	
+	// 지금 각도. 컴포넌트에서 되읽지 않고 우리가 센다
+	float CurrentYaw = 0.f;
 	
 };
