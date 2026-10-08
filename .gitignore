@@ -73,9 +73,31 @@ Desktop.ini
 # bloat the repository far past what GitHub is meant to carry.
 Content/ParagonTwinblast/
 
+# Downloaded asset packs, kept locally only for the same reason: together
+# these are roughly 4.5 GB, and every one of them can be fetched again from
+# where it came from (Epic's free library, Fab, KitBash3D).
+#
+# The trade-off: a fresh clone opens the level with broken references, because
+# 104 tracked assets point into Content/cyberdistrict. Re-import the packs
+# before opening Lvl_NeonDistrict. Anything built on top of them -- the
+# material instances, the level actors, the blueprints -- stays in the
+# repository, so only the source meshes and textures need fetching.
+Content/ParagonLtBelica/
+Content/cyberdistrict/
+Content/Pack_Bonus/
+Content/NeonGrid/
+Content/EasyFog/
+Content/Fab/
+Content/SystemFonts/
+
 # Local study imports and their notes. Not part of the project's deliverable
 # resources; kept out of the repository entirely (roadmap item 11).
 Content/CP77_Study/
 docs/CP77_Study/
 SourceArt/
 Tools/
+
+# Substance source files and their raw exports (231 MB). The textures that
+# matter are already imported under Content/MyAssets; these are the editable
+# originals and belong with SourceArt/ rather than in the repository.
+Assets/
