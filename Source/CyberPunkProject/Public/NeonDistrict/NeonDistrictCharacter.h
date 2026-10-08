@@ -25,10 +25,28 @@ class CYBERPUNKPROJECT_API ANeonDistrictCharacter : public AShooterCharacter
 	
 	// 조준하면 무기 메시를 조준 위치로 보간한다
 	void UpdateAimPose(float DeltaSeconds);
-	
+
 	// 조준 정도 0~1. 위치와 회전을 같은 값으로 섞어 전환 중 어긋나지 않게 한다
 	float AimAlpha = 0.f;
-	
+
+	// 이동 속도에 비례해 카메라를 상하좌우로 흔든다
+	void UpdateHeadBob(float DeltaSeconds);
+
+	// 누적 위상. 멈출 때 0으로 끊으면 카메라가 튀므로 위상은 두고 진폭만 줄인다
+	float HeadBobPhase = 0.f;
+
+	// 액터 기준 오프셋. 멈출 때 중립까지 보간한다
+	FVector HeadBobOffset = FVector::ZeroVector;
+
+	// 시야에 더할 회전. 평행이동보다 이쪽이 "걸음"으로 읽힌다.
+	// 카메라는 bUsePawnControlRotation 때문에 상대 회전이 매 프레임 덮어써지므로
+	// 컴포넌트가 아니라 CalcCamera 결과에 더한다
+	FRotator HeadBobRotation = FRotator::ZeroRotator;
+
+	// 1인칭 팔 메시의 원래 상대 위치. 흔들림은 여기서 출발한다.
+	// 카메라가 아니라 그 부모인 팔을 움직여야 팔과 시야가 함께 흔들린다
+	FVector FirstPersonMeshBaseLocation = FVector::ZeroVector;
+
 protected:
 	// 앞을 훑어 상호작용 대상을 찾는다
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
@@ -67,7 +85,37 @@ protected:
 	// 축이 본 기준이라(카메라 기본 회전이 0,90,-90 인 이유) 숫자로는 방향을 알 수 없다. 눈으로 찾는다
 	UPROPERTY(EditDefaultsOnly, Category="Neon District|Camera")
 	FVector FirstPersonCameraOffset = FVector::ZeroVector;
-	
+
+	// 걸을 때 카메라 상하 흔들림 폭(cm). 0이면 끈다
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|Camera", meta=(ClampMin=0, ClampMax=10, Units="Centimeters"))
+	float HeadBobAmplitude = 2.5f;
+
+	// 최대 속도일 때 초당 상하 왕복 횟수. 사람 걸음이 대략 2~3회다.
+	// 속도가 느리면 비례해 느려진다
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|Camera", meta=(ClampMin=0.1, ClampMax=8))
+	float HeadBobFrequency = 2.5f;
+
+	// 좌우 흔들림은 상하의 몇 배인가. 주기가 절반이라 둘을 합치면 8자를 그린다
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|Camera", meta=(ClampMin=0, ClampMax=2))
+	float HeadBobLateralRatio = 0.5f;
+
+	// 조준 중 흔들림 배율. 겨누는 동안 흔들리면 조준이 안 된다
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|Camera", meta=(ClampMin=0, ClampMax=1))
+	float HeadBobAimScale = 0.25f;
+
+	// 좌우로 기우는 각도. 걸을 때 머리가 기우는 느낌을 만든다.
+	// 평행이동은 먼 배경을 거의 못 움직이지만 회전은 화면 전체를 움직여 훨씬 잘 보인다
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|Camera", meta=(ClampMin=0, ClampMax=5, Units="Degrees"))
+	float HeadBobRollAngle = 0.6f;
+
+	// 위아래로 끄덕이는 각도. 발을 디딜 때의 끄덕임이다
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|Camera", meta=(ClampMin=0, ClampMax=5, Units="Degrees"))
+	float HeadBobPitchAngle = 0.35f;
+
+	// 흔들림이 목표값을 따라가는 속도. 낮추면 멈출 때 더 천천히 가라앉는다
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|Camera", meta=(ClampMin=1, ClampMax=30))
+	float HeadBobBlendSpeed = 10.f;
+
 	// 1인칭 화면에서 숨길 본. 1인칭 메시가 팔이 아니라 전신이라
 	// 카메라가 머리 안에 들어가 있고 머리.어깨가 화면으로 삐져나온다
 	UPROPERTY(EditDefaultsOnly, Category="Neon District|Mesh")
@@ -90,6 +138,8 @@ protected:
 	//~ Begin AActor Interface
 	virtual void BeginPlay() override;
 	virtual void Tick( float DeltaSeconds ) override;
+	// 렌더링되는 시야에만 흔들림 회전을 더한다. 컨트롤 회전은 그대로라 조준은 흔들리지 않는다
+	virtual void CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult) override;
 	//~ End AActor Interface
 	
 	//리스폰 대신 재시작
