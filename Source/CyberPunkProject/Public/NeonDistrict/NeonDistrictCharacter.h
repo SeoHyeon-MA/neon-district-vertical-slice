@@ -63,6 +63,10 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Neon District|Weapon")
 	UInputAction* ReloadAction;
 	
+	// 무기를 집어넣었을 때 쓸 맨손 애니메이션. 템플릿은 무기를 내려도 애님을 되돌리지 않는다
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|Weapon")
+	TSoftClassPtr<UAnimInstance> UnarmedAnimAsset;
+	
 	// BeginPlay 에서 카메라의 원래 시야각을 기억한다.
 	float DefaultFOV = 0.f;
 	
@@ -104,6 +108,9 @@ public:
 	FOnAimingChanged OnAimingChanged;
 	
 	bool IsAiming() const { return bIsAiming; }
+	
+	// 대화 중에는 총을 집어넣는다. 든 채로 의뢰를 받으면 상대에게 겨눈 그림이 된다
+	void SetWeaponHolstered(bool bHolstered);
 	
 	// 재장전 상태가 바뀔 때 방송. 탄약 카운터가 구독한다.
 	FOnReloadingChanged OnReloadingChanged;

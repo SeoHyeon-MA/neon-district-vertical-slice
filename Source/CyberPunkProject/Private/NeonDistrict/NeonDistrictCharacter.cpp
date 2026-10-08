@@ -36,6 +36,28 @@ void ANeonDistrictCharacter::UpdateAimPose(float DeltaSeconds)
 		FQuat::Slerp(FQuat::Identity, Weapon->GetAimOffsetRotation().Quaternion(), AimAlpha));
 }
 
+void ANeonDistrictCharacter::SetWeaponHolstered(bool bHolstered)
+{
+	if (!CurrentWeapon) return;
+	
+	if (bHolstered)
+	{
+		CurrentWeapon->DeactivateWeapon();
+		
+		// 템플릿의 OnWeaponDeactivated 는 비어 있어서, 무기만 숨기면
+		// 총 없이 사격 자세로 서 있게 된다. 맨손 애님으로 직접 되돌린다
+		if (UClass* Unarmed = UnarmedAnimAsset.LoadSynchronous())
+		{
+			GetMesh()->SetAnimInstanceClass(Unarmed);
+		}
+	}
+	else
+	{
+		// 애님은 OnWeaponActivated 가 무기에 맞춰 되돌려 준다
+		CurrentWeapon->ActivateWeapon(PlayerTag);
+	}
+}
+
 ANeonDistrictCharacter::ANeonDistrictCharacter()
 {
 	InteractionComponent = CreateDefaultSubobject<UInteractionComponent>(TEXT("Interaction"));

@@ -236,6 +236,12 @@ UDialogueWidget* ANeonDistrictPlayerController::StartDialogue(UDataTable* Table,
 		ShooterPawn->DoStopFiring();
 	}
 	
+	// 총을 집어넣는다. 3인칭 대화 화면에서 상대에게 겨누고 있지 않도록
+	if (ANeonDistrictCharacter* NeonPawn = GetPawn<ANeonDistrictCharacter>())
+	{
+		NeonPawn->SetWeaponHolstered(true);
+	}
+	
 	// 대화 상대가 카메라를 주면 그쪽으로. 없으면 화면은 그대로
 	if (ViewTarget)
 	{
@@ -287,5 +293,11 @@ void ANeonDistrictPlayerController::HandleDialogueFinished()
 	if (Crosshair)
 	{
 		Crosshair->SetVisibility(ESlateVisibility::HitTestInvisible);
+	}
+	
+	// 총을 다시 꺼낸다
+	if (ANeonDistrictCharacter* NeonPawn = GetPawn<ANeonDistrictCharacter>())
+	{
+		NeonPawn->SetWeaponHolstered(false);
 	}
 }
