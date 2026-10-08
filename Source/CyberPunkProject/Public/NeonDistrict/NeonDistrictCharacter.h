@@ -63,6 +63,16 @@ protected:
 	UPROPERTY(EditAnywhere, Category="Neon District|Weapon")
 	UInputAction* ReloadAction;
 	
+	// 1인칭 카메라를 머리 본 기준으로 미세 조정한다.
+	// 축이 본 기준이라(카메라 기본 회전이 0,90,-90 인 이유) 숫자로는 방향을 알 수 없다. 눈으로 찾는다
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|Camera")
+	FVector FirstPersonCameraOffset = FVector::ZeroVector;
+	
+	// 1인칭 화면에서 숨길 본. 1인칭 메시가 팔이 아니라 전신이라
+	// 카메라가 머리 안에 들어가 있고 머리.어깨가 화면으로 삐져나온다
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|Mesh")
+	TArray<FName> FirstPersonHiddenBones = { TEXT("head") };
+	
 	// 무기를 집어넣었을 때 쓸 맨손 애니메이션. 템플릿은 무기를 내려도 애님을 되돌리지 않는다
 	UPROPERTY(EditDefaultsOnly, Category="Neon District|Weapon")
 	TSoftClassPtr<UAnimInstance> UnarmedAnimAsset;

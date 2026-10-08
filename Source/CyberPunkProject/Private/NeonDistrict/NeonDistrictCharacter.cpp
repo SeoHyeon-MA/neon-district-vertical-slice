@@ -72,6 +72,18 @@ void ANeonDistrictCharacter::BeginPlay()
 	{
 		DefaultFOV = Camera->FieldOfView;
 		DefaultFirstPersonFOV = Camera->FirstPersonFieldOfView;
+		
+		// 카메라는 팔 메시의 자식이라 카메라를 옮겨도 팔은 그대로다
+		Camera->SetRelativeLocation(Camera->GetRelativeLocation() + FirstPersonCameraOffset);
+	}
+	
+	// 화면으로 삐져나오는 부위를 숨긴다. 자식 본까지 함께 숨겨진다
+	if (USkeletalMeshComponent* ArmsMesh = GetFirstPersonMesh())
+	{
+		for (const FName& Bone : FirstPersonHiddenBones)
+		{
+			ArmsMesh->HideBoneByName(Bone, EPhysBodyOp::PBO_None);
+		}
 	}
 	
 }
