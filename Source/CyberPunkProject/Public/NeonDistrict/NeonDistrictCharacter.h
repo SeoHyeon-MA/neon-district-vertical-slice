@@ -26,6 +26,9 @@ class CYBERPUNKPROJECT_API ANeonDistrictCharacter : public AShooterCharacter
 	// 조준하면 무기 메시를 조준 위치로 보간한다
 	void UpdateAimPose(float DeltaSeconds);
 	
+	// 조준 정도 0~1. 위치와 회전을 같은 값으로 섞어 전환 중 어긋나지 않게 한다
+	float AimAlpha = 0.f;
+	
 protected:
 	// 앞을 훑어 상호작용 대상을 찾는다
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
@@ -62,6 +65,9 @@ protected:
 	
 	// BeginPlay 에서 카메라의 원래 시야각을 기억한다.
 	float DefaultFOV = 0.f;
+	
+	// 1인칭 메시 전용 시야각의 원래 값. 월드 FOV 와 같은 비율로 움직인다
+	float DefaultFirstPersonFOV = 0.f;
 	
 public:
 	ANeonDistrictCharacter();

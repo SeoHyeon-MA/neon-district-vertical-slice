@@ -18,32 +18,22 @@ void ANeonDistrictCharacter::UpdateAimPose(float DeltaSeconds)
 	const ANeonDistrictWeapon* Weapon = Cast<ANeonDistrictWeapon>(CurrentWeapon);
 	USkeletalMeshComponent* WeaponMesh = Weapon ? Weapon->GetFirstPersonMesh() : nullptr;
 	if (!WeaponMesh) return;
-
+	
 	// 팔이 아니라 무기를 옮긴다. 팔은 3인칭 메시의 포즈를 복사해 시점을 따라 기울고,
 	// 카메라가 그 팔의 head 본에 타고 있어 총이 화면에 고정된다. 팔을 건드리면 그 구조가 깨진다
-
-	// 손 소켓에 SnapToTarget 으로 붙으므로 평소 상대 트랜스폼은 항등이다
-	FVector TargetLocation = FVector::ZeroVector;
-	FQuat TargetQuat = FQuat::Identity;
-
-	if (bIsAiming)
-	{
-		// 조준 위치는 무기마다 다르다. 무기에게 묻는다
-		TargetLocation = Weapon->GetAimOffsetLocation();
-
-		// FRotator 덧셈은 Pitch/Yaw/Roll 숫자를 각각 더할 뿐이라 축이 섞인다.
-		// 회전은 쿼터니언으로 다룬다
-		TargetQuat = Weapon->GetAimOffsetRotation().Quaternion();
-	}
-
-	// 시야각과 같은 속도로 움직여야 둘이 한 동작으로 보인다
-	const float Alpha = FMath::Clamp(DeltaSeconds * AimBlendSpeed, 0.f, 1.f);
-
-	WeaponMesh->SetRelativeLocation(FMath::VInterpTo(WeaponMesh->GetRelativeLocation(), TargetLocation, DeltaSeconds, AimBlendSpeed));
-
-	// 쿼터니언 보간. FRotator 보간은 짐벌락 근처에서 같은 자세가 프레임마다
-	// 다른 숫자로 표현돼 보간이 제자리를 못 찾는다
-	WeaponMesh->SetRelativeRotation(FQuat::Slerp(WeaponMesh->GetRelativeRotation().Quaternion(), TargetQuat, Alpha));
+	
+	// 조준 정도를 우리가 센다. 컴포넌트에서 현재 트랜스폼을 되읽으면
+	// 위치와 회전이 각자 수렴해 전환 중에 총신이 호를 그렸다 되돌아온다
+	const float TargetAlpha = bIsAiming ? 1.f : 0.f;
+	AimAlpha = FMath::FInterpTo(AimAlpha, TargetAlpha, DeltaSeconds, AimBlendSpeed);
+	
+	// 손 소켓에 SnapToTarget 으로 붙으므로 조준하지 않을 때는 항등이다.
+	// 알파 하나가 위치와 회전을 함께 몰아 둘이 어긋날 수 없다
+	WeaponMesh->SetRelativeLocation(
+		FMath::Lerp(FVector::ZeroVector, Weapon->GetAimOffsetLocation(), AimAlpha));
+	
+	WeaponMesh->SetRelativeRotation(
+		FQuat::Slerp(FQuat::Identity, Weapon->GetAimOffsetRotation().Quaternion(), AimAlpha));
 }
 
 ANeonDistrictCharacter::ANeonDistrictCharacter()
@@ -59,6 +49,7 @@ void ANeonDistrictCharacter::BeginPlay()
 	if (UCameraComponent* Camera = GetFirstPersonCameraComponent())
 	{
 		DefaultFOV = Camera->FieldOfView;
+		DefaultFirstPersonFOV = Camera->FirstPersonFieldOfView;
 	}
 	
 }
@@ -75,7 +66,13 @@ void ANeonDistrictCharacter::Tick(float DeltaSeconds)
 	const float TargetFOV = bIsAiming ? AimFOV : DefaultFOV;
 	if (FMath::IsNearlyEqual(Camera->FieldOfView, TargetFOV, 0.05f)) return;
 	
-	Camera->SetFieldOfView(FMath::FInterpTo(Camera->FieldOfView, TargetFOV, DeltaSeconds, AimBlendSpeed));
+	const float NewFOV = FMath::FInterpTo(Camera->FieldOfView, TargetFOV, DeltaSeconds, AimBlendSpeed);
+	Camera->SetFieldOfView(NewFOV);
+	
+	// 1인칭 메시(팔.총)는 별도 시야각으로 그려진다. 월드 FOV 만 바꾸면 둘을 맞추는 보정이
+	// 매 프레임 달라져, 카메라에서 먼 부분(총열.사이트)일수록 크게 흔들린다.
+	// 비를 유지하면 보정값이 그대로라 총 크기도 유지되고 떨림도 없다
+	Camera->FirstPersonFieldOfView = DefaultFirstPersonFOV * (NewFOV / DefaultFOV);
 }
 
 void ANeonDistrictCharacter::DoStartAiming()
