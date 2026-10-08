@@ -15,4 +15,7 @@ ANeonDistrictPistol::ANeonDistrictPistol()
 	GunMeshScale = 1.f;
 	GunMeshLocation = FVector::ZeroVector;
 	GunMeshRotation = FRotator::ZeroRotator;
+	
+	// 3인칭도 같은 메시라 배율은 같다. 손 소켓 위치가 달라 자리만 따로 맞춘다
+	GunMeshScaleThirdPerson = GunMeshScale;
 }

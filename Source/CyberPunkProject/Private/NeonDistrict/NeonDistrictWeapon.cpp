@@ -22,24 +22,42 @@ ANeonDistrictWeapon::ANeonDistrictWeapon()
 	//1인칭 전용 렌더링
 	GunMesh->SetFirstPersonPrimitiveType(EFirstPersonPrimitiveType::FirstPerson);
 	GunMesh->bOnlyOwnerSee = true;
+	
+	//3인칭용 총. 대화 카메라와 적이 보는 것은 이쪽이다.
+	//템플릿이 ThirdPersonMesh 를 3인칭 손 소켓에 붙여 주므로 그 자식으로 둔다
+	GunMeshThirdPerson = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Gun Mesh Third Person"));
+	GunMeshThirdPerson->SetupAttachment(GetThirdPersonMesh());
+	
+	GunMeshThirdPerson->SetCollisionProfileName(FName("NoCollision"));
+	
+	//소유자에게는 1인칭 총이 따로 있으므로 3인칭 총은 가린다. 남이 보는 화면에는 이것만 보인다
+	GunMeshThirdPerson->SetFirstPersonPrimitiveType(EFirstPersonPrimitiveType::WorldSpaceRepresentation);
+	GunMeshThirdPerson->bOwnerNoSee = true;
+}
 
+void ANeonDistrictWeapon::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+	
+	// 총 모델. 1인칭.3인칭이 같은 메시를 쓴다
+	if (UStaticMesh* Mesh = GunMeshAsset.LoadSynchronous())
+	{
+		GunMesh->SetStaticMesh(Mesh);
+		GunMeshThirdPerson->SetStaticMesh(Mesh);
+	}
+	
+	GunMesh->SetRelativeScale3D(FVector(GunMeshScale));
+	GunMesh->SetRelativeLocation(GunMeshLocation);
+	GunMesh->SetRelativeRotation(GunMeshRotation);
+	
+	// 3인칭 손 소켓은 자리가 달라 값을 따로 받는다
+	GunMeshThirdPerson->SetRelativeScale3D(FVector(GunMeshScaleThirdPerson));
+	GunMeshThirdPerson->SetRelativeLocation(GunMeshLocationThirdPerson);
+	GunMeshThirdPerson->SetRelativeRotation(GunMeshRotationThirdPerson);
 }
 
 void ANeonDistrictWeapon::BeginPlay()
 {
-	// 총 모델
-	if (UStaticMesh* Mesh = GunMeshAsset.LoadSynchronous())
-	{
-		GunMesh->SetStaticMesh(Mesh);
-		
-	}
-	
-	// 총 크기 조절
-	GunMesh->SetRelativeScale3D(FVector(GunMeshScale));
-	// 총 위치 조절
-	GunMesh->SetRelativeLocation(GunMeshLocation);
-	// 총 방향 조절
-	GunMesh->SetRelativeRotation(GunMeshRotation);
 
 	// 발사할 투사체
 	if (UClass* Projectile = LoadClass<AShooterProjectile>(nullptr,
