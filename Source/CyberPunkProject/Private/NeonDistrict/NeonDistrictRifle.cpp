@@ -21,7 +21,7 @@ ANeonDistrictRifle::ANeonDistrictRifle()
 	// Fab 총 원본은 길이 401cm 다. 템플릿 SM_Rifle(78.6cm)에 맞춘 배율 = 78.6 / 401.0
 	// 눈으로 맞춘 값이 아니라 마네킹 손에 맞는 크기가 검증된 메시에서 역산한 값이다
 	GunMeshScale = 0.196f;
-	GunMeshLocation = FVector(0.f, 0.f, 5.f);
+	GunMeshLocation = FVector(0.f, 0.f, 8.f);
 	GunMeshRotation = FRotator::ZeroRotator;
 	
 	// 1인칭과 3인칭이 월드에서 같은 크기다
