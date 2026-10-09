@@ -15,13 +15,32 @@ class UPropProfileDataAsset;
  *	이 층은 그것을 어떻게 그릴지 (인스턴싱이냐 스플라인 메쉬냐, 그림자·LOD·컬링은 어떻게)만 결정한다.
  *	상태가 없으므로 UCLASS 가 아니라 자유 함수다
  */
+/**
+ *	구간 하나를 그리는 데 필요한 값 전부. 전부 로컬 공간이다.
+ *	인자로 늘어놓으면 순서를 헷갈리기 쉬워 묶었다
+ */
+struct FPropSegmentSpec
+{
+	FVector StartPos = FVector::ZeroVector;
+	FVector StartTangent = FVector::ZeroVector;
+	FVector EndPos = FVector::ZeroVector;
+	FVector EndTangent = FVector::ZeroVector;
+
+	/** 메쉬의 "위". 진행 방향과 나란해지면 빌더가 월드 업으로 되돌린다 */
+	FVector UpDir = FVector::UpVector;
+
+	/** 진행 방향과 직각인 단면 배율. 양끝이 다르면 구간을 따라 가늘어진다 */
+	FVector2D StartScale = FVector2D(1.f, 1.f);
+	FVector2D EndScale = FVector2D(1.f, 1.f);
+};
+
 namespace PropMeshBuilder
 {
 	/** Repeat - 트랜스폼 배열을 인스턴스 통에 올린다 */
 	void BuildInstances(UInstancedStaticMeshComponent* ISM, const UPropProfileDataAsset* Profile, const TArray<FTransform>& Transforms);
-	
-	/** Deform - 한 구간을 만들어 등록까지 마치고 돌려준다. UpDir 은 로컬 공간이다 */
-	USplineMeshComponent* MakeSegment(AActor* Owner, USceneComponent* AttachTo, const UPropProfileDataAsset* Profile, const FVector& StartPos, const FVector& StartTangent, const FVector& EndPos, const FVector& EndTangent, const FVector& UpDir);
+
+	/** Deform - 한 구간을 만들어 등록까지 마치고 돌려준다 */
+	USplineMeshComponent* MakeSegment(AActor* Owner, USceneComponent* AttachTo, const UPropProfileDataAsset* Profile, const FPropSegmentSpec& Spec);
 	
 	/** 두 모드가 공유하는 렌더링 설정. 머테리얼 덮어쓰기 포함 */
 	void ApplyRenderingSettings(UPrimitiveComponent* Component, const UPropProfileDataAsset* Profile);

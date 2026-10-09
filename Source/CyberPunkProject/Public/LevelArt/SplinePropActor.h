@@ -34,6 +34,14 @@ protected:
 	/** 무엇을 어떻게 놓을지. 이것만 바꾸면 종류가 통째로 바뀐다 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SplineProp")
 	TObjectPtr<UPropProfileDataAsset> Profile;
+
+	/**
+	 *	이 액터만의 크기 배율. 프로파일의 MeshScale 에 곱해진다.
+	 *	프로파일은 여러 액터가 공유하므로 거기서 키우면 같은 프로파일을 쓰는 것이 전부 커진다.
+	 *	하나만 굵게 하고 싶을 때 여기를 쓴다
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SplineProp", meta = (ClampMin = "0.01", UIMin = "0.1", UIMax = "5.0"))
+	float MeshScale = 1.f;
 	
 	/**
 	 *	Deform 모드에서 구간마다 만든 컴포넌트.
@@ -60,6 +68,9 @@ public:
 	void Rebuild();
 	
 protected:
+	/** 프로파일 배율과 이 액터의 배율을 합친 값. 크기를 쓰는 쪽은 전부 이것만 본다 */
+	float GetEffectiveMeshScale() const;
+
 	/** 이전에 만든 것을 전부 치운다. Rebuild 의 첫 줄 */
 	void ClearBuilt();
 	

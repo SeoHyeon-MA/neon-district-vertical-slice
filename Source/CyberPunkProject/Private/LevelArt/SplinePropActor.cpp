@@ -61,6 +61,11 @@ void ASplinePropActor::Rebuild()
 	}
 }
 
+float ASplinePropActor::GetEffectiveMeshScale() const
+{
+	return Profile ? Profile->MeshScale * MeshScale : MeshScale;
+}
+
 void ASplinePropActor::ClearBuilt()
 {
 	if (Instances)
@@ -132,7 +137,7 @@ void ASplinePropActor::CollectRepeatTransforms(TArray<FTransform>& OutTransforms
 			Quat = Quat * FQuat(FVector::UpVector, FMath::DegreesToRadians(Yaw));
 		}
 		
-		FVector Scale = FVector::OneVector;
+		FVector Scale = FVector(GetEffectiveMeshScale());
 		if (Profile->ScaleJitter > 0.0f)
 		{
 			Scale *= 1.0f + Stream.FRandRange(-Profile->ScaleJitter, Profile->ScaleJitter);
@@ -172,8 +177,11 @@ void ASplinePropActor::BuildDeformTiled()
 
 	// 자투리 제거 - 타일 길이를 스플라인 길이에 맞춰 미세 조정한다.
 	// 끄면 TileLength 를 정확히 지키는 대신 마지막 조각이 짧게 남는다
-	const int32 Count = FMath::Max(FMath::FloorToInt(Total / Profile->TileLength), 1);
-	const float Step = Profile->bFitTiles ? (Total / Count) : Profile->TileLength;
+	// 배율이 커지면 메쉬도 커지므로 한 장이 덮는 길이도 같이 늘려야 비율이 유지된다
+	const float Tile = Profile->TileLength * GetEffectiveMeshScale();
+	
+	const int32 Count = FMath::Max(FMath::FloorToInt(Total / Tile), 1);
+	const float Step = Profile->bFitTiles ? (Total / Count) : Tile;
 	const int32 Num = Profile->bFitTiles ? Count : FMath::CeilToInt(Total / Step);
 
 	Segments.Reserve(Num);
@@ -205,11 +213,22 @@ void ASplinePropActor::BuildDeformTiled()
 			EndTangent.Z += Sag;
 		}
 
-		const FVector UpDir = Profile->bUseSplineUpVector
+		FPropSegmentSpec Spec;
+		Spec.StartPos = StartPos;
+		Spec.StartTangent = StartTangent;
+		Spec.EndPos = EndPos;
+		Spec.EndTangent = EndTangent;
+
+		Spec.UpDir = Profile->bUseSplineUpVector
 			? Spline->GetUpVectorAtDistanceAlongSpline(D0, ESplineCoordinateSpace::Local)
 			: Profile->UpDirection;
 
-		if (USplineMeshComponent* Seg = PropMeshBuilder::MakeSegment(this, Spline, Profile, StartPos, StartTangent, EndPos, EndTangent, UpDir))
+		// 가늘어짐은 조각이 아니라 스플라인 전체 길이를 기준으로 섞는다.
+		// 조각마다 0→1 을 돌리면 타일 경계마다 두께가 끊긴다
+		Spec.StartScale = FMath::Lerp(Profile->CrossSectionScale, Profile->CrossSectionScaleEnd, D0 / Total) * GetEffectiveMeshScale();
+		Spec.EndScale   = FMath::Lerp(Profile->CrossSectionScale, Profile->CrossSectionScaleEnd, D1 / Total) * GetEffectiveMeshScale();
+
+		if (USplineMeshComponent* Seg = PropMeshBuilder::MakeSegment(this, Spline, Profile, Spec))
 		{
 			Segments.Add(Seg);
 		}
@@ -253,13 +272,30 @@ void ASplinePropActor::BuildDeformPerPoint()
 			EndTangent.Z += Sag;	// 아래에서 올라오며 도착
 		}
 		
+		FPropSegmentSpec Spec;
+		Spec.StartPos = StartPos;
+		Spec.StartTangent = StartTangent;
+		Spec.EndPos = EndPos;
+		Spec.EndTangent = EndTangent;
+
 		// 구간 시작점의 업 벡터를 쓴다. 스플라인이 점마다 계산해 주므로 구간끼리 이어지고
 		// 롤도 반영된다. 끄면 프로파일의 고정값을 쓴다
-		const FVector UpDir = Profile->bUseSplineUpVector
+		Spec.UpDir = Profile->bUseSplineUpVector
 			? Spline->GetUpVectorAtSplinePoint(i, ESplineCoordinateSpace::Local)
 			: Profile->UpDirection;
 
-		if (USplineMeshComponent* Seg = PropMeshBuilder::MakeSegment(this, Spline, Profile, StartPos, StartTangent, EndPos, EndTangent, UpDir))
+		// 가늘어짐은 전체 길이 기준. 닫힌 루프의 마지막 구간은 다음 점이 0번이라
+		// 거리가 0으로 돌아오므로, 그때만 끝을 1로 본다
+		const float Total = Spline->GetSplineLength();
+		const float A0 = Total > 0.f ? Spline->GetDistanceAlongSplineAtSplinePoint(i) / Total : 0.f;
+		const float A1 = (NextIndex == 0)
+			? 1.f
+			: (Total > 0.f ? Spline->GetDistanceAlongSplineAtSplinePoint(NextIndex) / Total : 1.f);
+
+		Spec.StartScale = FMath::Lerp(Profile->CrossSectionScale, Profile->CrossSectionScaleEnd, A0) * GetEffectiveMeshScale();
+		Spec.EndScale   = FMath::Lerp(Profile->CrossSectionScale, Profile->CrossSectionScaleEnd, A1) * GetEffectiveMeshScale();
+
+		if (USplineMeshComponent* Seg = PropMeshBuilder::MakeSegment(this, Spline, Profile, Spec))
 		{
 			Segments.Add(Seg);
 		}

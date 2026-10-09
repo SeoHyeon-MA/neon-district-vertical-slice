@@ -20,7 +20,7 @@ namespace PropMeshBuilder
 		ISM->AddInstances(Transforms, /*bShouldReturnIndices*/ false);
 	}
 
-	USplineMeshComponent* MakeSegment(AActor* Owner, USceneComponent* AttachTo, const UPropProfileDataAsset* Profile, const FVector& StartPos, const FVector& StartTangent, const FVector& EndPos, const FVector& EndTangent, const FVector& UpDir)
+	USplineMeshComponent* MakeSegment(AActor* Owner, USceneComponent* AttachTo, const UPropProfileDataAsset* Profile, const FPropSegmentSpec& Spec)
 	{
 		if (!Owner || !AttachTo || !Profile)
 		{
@@ -45,8 +45,8 @@ namespace PropMeshBuilder
 
 		// 업 벡터가 진행 방향과 나란해지면 메쉬가 축을 중심으로 돌아간다.
 		// 그때는 기본값을 쓰는 수밖에 없고, 아니면 받은 값을 정규화해 넣는다
-		const FVector Dir = (EndPos - StartPos).GetSafeNormal();
-		FVector SafeUp = UpDir.GetSafeNormal();
+		const FVector Dir = (Spec.EndPos - Spec.StartPos).GetSafeNormal();
+		FVector SafeUp = Spec.UpDir.GetSafeNormal();
 		if (SafeUp.IsNearlyZero() || FMath::Abs(FVector::DotProduct(SafeUp, Dir)) > 0.99f)
 		{
 			SafeUp = FVector::UpVector;
@@ -54,7 +54,11 @@ namespace PropMeshBuilder
 		Seg->SetSplineUpDir(SafeUp, /*bUpdateMesh*/ false);
 
 		// 마지막에 부르며 메쉬를 갱신한다
-		Seg->SetStartAndEnd(StartPos, StartTangent, EndPos, EndTangent);
+		// 단면 배율. 길이 방향은 스플라인이 정하므로 여기서는 직각인 두 축만 건드린다
+		Seg->SetStartScale(Spec.StartScale, /*bUpdateMesh*/ false);
+		Seg->SetEndScale(Spec.EndScale, /*bUpdateMesh*/ false);
+
+		Seg->SetStartAndEnd(Spec.StartPos, Spec.StartTangent, Spec.EndPos, Spec.EndTangent);
 		
 		ApplyRenderingSettings(Seg, Profile);
 		

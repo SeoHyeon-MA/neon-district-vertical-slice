@@ -107,7 +107,34 @@ public:
 	/** 위를 고정하고 싶을 때 쓸 방향(로컬). bUseSplineUpVector 를 끄면 이 값이 쓰인다 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Placement", meta = (EditCondition = "Mode == EPropPlacementMode::Deform && !bUseSplineUpVector", EditConditionHides))
 	FVector UpDirection = FVector::UpVector;
-	
+
+	// -- 크기 --
+
+	/**
+	 *	스태틱 메쉬를 통째로 키우거나 줄인다. 비율이 유지된다.
+	 *
+	 *	Repeat 은 각 메쉬에 그대로 곱한다.
+	 *	Deform 은 길이 방향을 스플라인이 소유해서 배율을 직접 못 준다. 대신 단면과
+	 *	TileLength 에 함께 곱해, 같은 메쉬가 더 큰 크기로 반복되게 만든다.
+	 *	2로 두면 두 배 굵어지고 마디 간격도 두 배가 된다
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Scale", meta = (ClampMin = "0.01", UIMin = "0.1", UIMax = "5.0"))
+	float MeshScale = 1.f;
+
+	/**
+	 *	Deform 에서 진행 방향과 직각인 단면 배율. MeshScale 위에 곱해지는 미세 조정이다.
+	 *	길이는 안 건드리므로 이것만 올리면 굵어지는 대신 납작해 보인다
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Scale", meta = (ClampMin = "0.01", EditCondition = "Mode == EPropPlacementMode::Deform", EditConditionHides))
+	FVector2D CrossSectionScale = FVector2D(1.f, 1.f);
+
+	/**
+	 *	스플라인 끝에서의 단면 배율. CrossSectionScale 과 다르게 두면 전체를 따라 가늘어진다.
+	 *	타일로 쪼개도 전체 길이 기준으로 보간하므로 조각 경계에서 끊기지 않는다
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Scale", meta = (ClampMin = "0.01", EditCondition = "Mode == EPropPlacementMode::Deform", EditConditionHides))
+	FVector2D CrossSectionScaleEnd = FVector2D(1.f, 1.f);
+
 	// -- 변화 주기 --
 	
 	/** 배치할 때마다 무작위로 더할 수 있는 회전 폭(도). 0 이면 전부 반듯하다 */
