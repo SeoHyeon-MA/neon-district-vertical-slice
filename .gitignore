@@ -97,7 +97,22 @@ docs/CP77_Study/
 SourceArt/
 Tools/
 
+# Imported props and their source textures (187 MB, and a single 4K texture in
+# here outweighs every level actor put together). Unlike the packs above these
+# were brought in and wired up by hand, so keep the local copy: the level
+# references them and a fresh clone will show those props missing.
+Content/MyAssets/
+
+# Downloaded archives that got unpacked into Content. The assets inside are
+# committed on their own; the zip is just the delivery wrapper.
+Content/**/*.zip
+Content/**/*.rar
+Content/**/*.7z
+
 # Substance source files and their raw exports (231 MB). The textures that
 # matter are already imported under Content/MyAssets; these are the editable
 # originals and belong with SourceArt/ rather than in the repository.
-Assets/
+#
+# Anchored: an unanchored "Assets/" matches that folder name at any depth, and
+# it was quietly catching Content/LevelPrototyping/.../JumpPad/Assets as well.
+/Assets/
