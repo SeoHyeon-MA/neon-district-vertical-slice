@@ -69,6 +69,12 @@ protected:
 	/** 계산된 트래스폼을 인스턴스로 올린다 */
 	void BuildRepeat();
 	
-	/** 구간마다 SplineMeshComponent 를 만들어 메쉬를 휜다 */
+	/** 구간마다 SplineMeshComponent 를 만들어 메쉬를 휜다. TileLength 가 있으면 쪼개서 깐다 */
 	void BuildDeform();
+
+	/** 점 사이마다 메쉬 하나. 점 간격이 곧 메쉬 길이다 */
+	void BuildDeformPerPoint();
+
+	/** 스플라인 길이를 TileLength 로 나눠 깐다. 점 간격과 무관하게 길이가 일정하다 */
+	void BuildDeformTiled();
 };

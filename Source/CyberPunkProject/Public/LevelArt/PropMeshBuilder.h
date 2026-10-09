@@ -20,8 +20,8 @@ namespace PropMeshBuilder
 	/** Repeat - 트랜스폼 배열을 인스턴스 통에 올린다 */
 	void BuildInstances(UInstancedStaticMeshComponent* ISM, const UPropProfileDataAsset* Profile, const TArray<FTransform>& Transforms);
 	
-	/** Deform - 한 구간을 만들어 등록까지 마치고 돌려준다 */
-	USplineMeshComponent* MakeSegment(AActor* Owner, USceneComponent* AttachTo, const UPropProfileDataAsset* Profile, const FVector& StartPos, const FVector& StartTangent, const FVector& EndPos, const FVector& EndTangent);
+	/** Deform - 한 구간을 만들어 등록까지 마치고 돌려준다. UpDir 은 로컬 공간이다 */
+	USplineMeshComponent* MakeSegment(AActor* Owner, USceneComponent* AttachTo, const UPropProfileDataAsset* Profile, const FVector& StartPos, const FVector& StartTangent, const FVector& EndPos, const FVector& EndTangent, const FVector& UpDir);
 	
 	/** 두 모드가 공유하는 렌더링 설정. 머테리얼 덮어쓰기 포함 */
 	void ApplyRenderingSettings(UPrimitiveComponent* Component, const UPropProfileDataAsset* Profile);

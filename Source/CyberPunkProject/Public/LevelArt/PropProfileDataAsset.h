@@ -83,6 +83,30 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Placement", meta = (ClampMin = "0.0", ClampMax = "2.0", EditCondition = "Mode == EPropPlacementMode::Deform", EditConditionHides))
 	float SagAmount = 0.f;
+
+	/**
+	 *	구간을 이 길이(cm)로 쪼개 메쉬를 깐다. 0이면 쪼개지 않고 점 사이마다 메쉬 하나를 늘린다.
+	 *	스플라인 메쉬는 반복이 아니라 변형이라, 쪼개지 않으면 점을 띄운 만큼 메쉬가 늘어난다.
+	 *	값을 주면 점을 아무리 띄워도 메쉬 한 장의 길이가 일정하게 유지된다 (파이프, 펜스 그물망)
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Placement", meta = (ClampMin = "0.0", UIMax = "1000.0", EditCondition = "Mode == EPropPlacementMode::Deform", EditConditionHides))
+	float TileLength = 0.f;
+
+	/** 타일 길이를 스플라인 길이에 맞춰 미세 조정해 끝에 자투리가 남지 않게 한다 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Placement", meta = (EditCondition = "Mode == EPropPlacementMode::Deform && TileLength > 0", EditConditionHides))
+	bool bFitTiles = true;
+
+	/**
+	 *	메쉬의 "위"를 무엇으로 잡을지. 스플라인 메쉬는 업 벡터가 고정이라
+	 *	구간이 수직에 가까워지면 축을 중심으로 돌아간다.
+	 *	켜면 스플라인이 점마다 계산한 업 벡터를 써서 구간끼리 이어진다 (롤도 반영된다)
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Placement", meta = (EditCondition = "Mode == EPropPlacementMode::Deform", EditConditionHides))
+	bool bUseSplineUpVector = true;
+
+	/** 위를 고정하고 싶을 때 쓸 방향(로컬). bUseSplineUpVector 를 끄면 이 값이 쓰인다 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Prop|Placement", meta = (EditCondition = "Mode == EPropPlacementMode::Deform && !bUseSplineUpVector", EditConditionHides))
+	FVector UpDirection = FVector::UpVector;
 	
 	// -- 변화 주기 --
 	
