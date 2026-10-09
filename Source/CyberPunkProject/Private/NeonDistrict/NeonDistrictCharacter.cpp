@@ -43,7 +43,7 @@ void ANeonDistrictCharacter::UpdateHeadBob(float DeltaSeconds)
 	// 시야만 올라가는데, 팔은 카메라에서 가까워 시차 때문에 화면에서 크게 미끄러진다.
 	// 팔을 움직이면 자식인 카메라가 함께 따라와 팔은 화면에 고정되고 월드가 흔들린다
 	USkeletalMeshComponent* ArmsMesh = GetFirstPersonMesh();
-	if (!ArmsMesh || HeadBobAmplitude <= 0.f) return;
+	if (!ArmsMesh) return;
 
 	// 땅을 딛고 있을 때만 흔든다. 공중에서는 발이 닿지 않으니 걸음도 없다
 	const UCharacterMovementComponent* Movement = GetCharacterMovement();
@@ -84,16 +84,52 @@ void ANeonDistrictCharacter::UpdateHeadBob(float DeltaSeconds)
 
 	// 팔 메시는 3인칭 메시의 자식이고 그쪽은 회전이 들어가 있어, 로컬 Z 가 위가 아니다.
 	// 액터 기준으로 만든 뒤 부모 공간으로 변환해야 실제 위아래로 움직인다
-	FVector LocalOffset = HeadBobOffset;
+	// 흔들림과 머리 본 상쇄를 합쳐 한 번만 적용한다. 둘 다 액터 기준 값이다
+	FVector ActorOffset = HeadBobOffset;
+	ActorOffset.Z += HeadBoneDampZ;
+
+	FVector LocalOffset = ActorOffset;
 	if (const USceneComponent* Parent = ArmsMesh->GetAttachParent())
 	{
 		const FTransform ParentTM = Parent->GetSocketTransform(ArmsMesh->GetAttachSocketName());
-		const FVector WorldOffset = GetActorUpVector() * HeadBobOffset.Z
-			+ GetActorRightVector() * HeadBobOffset.Y;
+		const FVector WorldOffset = GetActorUpVector() * ActorOffset.Z
+			+ GetActorRightVector() * ActorOffset.Y;
 		LocalOffset = ParentTM.InverseTransformVector(WorldOffset);
 	}
 
 	ArmsMesh->SetRelativeLocation(FirstPersonMeshBaseLocation + LocalOffset);
+}
+
+void ANeonDistrictCharacter::UpdateHeadBoneDamping(float DeltaSeconds)
+{
+	HeadBoneDampZ = 0.f;
+
+	USkeletalMeshComponent* ArmsMesh = GetFirstPersonMesh();
+	if (!ArmsMesh || HeadBoneDampAmount <= 0.f) return;
+
+	// 컴포넌트 공간으로 재야 한다. 아래에서 이 메시의 상대 위치를 우리가 옮기는데,
+	// 월드나 액터 기준으로 재면 그 오프셋이 측정값에 다시 섞여 되먹임이 생긴다.
+	// 컴포넌트 공간 값은 순수하게 애니메이션이 본을 움직인 양이다
+	const FVector HeadCS = ArmsMesh->GetBoneLocation(CameraBoneName, EBoneSpaces::ComponentSpace);
+
+	// 축을 액터 기준으로 돌린다. 회전만 쓰므로 위치 오프셋과 무관하다
+	const FQuat CompToActor = GetActorTransform().InverseTransformRotation(ArmsMesh->GetComponentQuat());
+	const float HeadUp = CompToActor.RotateVector(HeadCS).Z;
+
+	if (!bHeadBoneDampInitialized)
+	{
+		SmoothedHeadBoneZ = HeadUp;
+		bHeadBoneDampInitialized = true;
+	}
+
+	// 기준선이 느리게 따라오므로 차이에는 빠른 움직임만 남는다.
+	// 걷는 중의 완만한 상하는 기준선이 삼켜서 그대로 통과한다
+	SmoothedHeadBoneZ = FMath::FInterpTo(SmoothedHeadBoneZ, HeadUp, DeltaSeconds, HeadBoneDampSmoothing);
+
+	// 적용은 UpdateHeadBob 이 흔들림과 합쳐서 한 번에 한다.
+	// 팔을 되돌리면 자식인 카메라까지 같이 안정된다 - 카메라만 되돌리면
+	// 월드는 멈추지만 팔이 시야에 대해 튄다
+	HeadBoneDampZ = -(HeadUp - SmoothedHeadBoneZ) * HeadBoneDampAmount;
 }
 
 void ANeonDistrictCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
@@ -144,6 +180,7 @@ void ANeonDistrictCharacter::BeginPlay()
 		
 		// 카메라는 팔 메시의 자식이라 카메라를 옮겨도 팔은 그대로다
 		Camera->SetRelativeLocation(Camera->GetRelativeLocation() + FirstPersonCameraOffset);
+
 	}
 	
 	// 화면으로 삐져나오는 부위를 숨긴다. 자식 본까지 함께 숨겨진다
@@ -167,6 +204,8 @@ void ANeonDistrictCharacter::Tick(float DeltaSeconds)
 	UpdateAimPose(DeltaSeconds);
 
 	// FOV 보간은 목표에 닿으면 early return 하므로 그보다 먼저 부른다
+	// 상쇄를 먼저 계산하고, 흔들림이 둘을 합쳐 팔 메시에 한 번 적용한다
+	UpdateHeadBoneDamping(DeltaSeconds);
 	UpdateHeadBob(DeltaSeconds);
 
 	UCameraComponent* Camera = GetFirstPersonCameraComponent();

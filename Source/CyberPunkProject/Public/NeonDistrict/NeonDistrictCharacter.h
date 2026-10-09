@@ -47,6 +47,19 @@ class CYBERPUNKPROJECT_API ANeonDistrictCharacter : public AShooterCharacter
 	// 카메라가 아니라 그 부모인 팔을 움직여야 팔과 시야가 함께 흔들린다
 	FVector FirstPersonMeshBaseLocation = FVector::ZeroVector;
 
+	// 점프 애니메이션이 머리 본을 밀어 올리는 것을 상쇄한다
+	void UpdateHeadBoneDamping(float DeltaSeconds);
+
+	// 머리 본 높이(액터 기준)를 느리게 따라가는 기준선.
+	// 현재 높이에서 이것을 빼면 "빠른 움직임"만 남는다
+	float SmoothedHeadBoneZ = 0.f;
+
+	// 첫 프레임에는 기준선이 없다. 0에서 출발하면 그 순간 화면이 크게 튄다
+	bool bHeadBoneDampInitialized = false;
+
+	// 이번 프레임에 팔을 되돌릴 양(액터 기준 Z). UpdateHeadBob 이 흔들림과 합쳐 적용한다
+	float HeadBoneDampZ = 0.f;
+
 protected:
 	// 앞을 훑어 상호작용 대상을 찾는다
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
@@ -115,6 +128,23 @@ protected:
 	// 흔들림이 목표값을 따라가는 속도. 낮추면 멈출 때 더 천천히 가라앉는다
 	UPROPERTY(EditDefaultsOnly, Category="Neon District|Camera", meta=(ClampMin=1, ClampMax=30))
 	float HeadBobBlendSpeed = 10.f;
+
+	/**
+	 *	카메라가 타고 있는 본. 점프 애니메이션이 이 본을 움직이면 시야가 통째로 튄다.
+	 *	3인칭에서는 웅크렸다 뛰는 자연스러운 연출이지만 1인칭에서는 멀미가 된다
+	 */
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|Camera")
+	FName CameraBoneName = TEXT("head");
+
+	// 머리 본의 빠른 수직 움직임을 얼마나 상쇄할지. 0이면 끄고, 1이면 거의 없앤다.
+	// 느린 움직임은 기준선이 따라가므로 남는다
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|Camera", meta=(ClampMin=0, ClampMax=1))
+	float HeadBoneDampAmount = 0.8f;
+
+	// 기준선이 현재 높이를 따라가는 속도. 낮출수록 더 느린 움직임까지 걸러낸다.
+	// 점프는 0.23초에 16.8cm 솟구치므로 그보다 느리게 잡아야 걸린다
+	UPROPERTY(EditDefaultsOnly, Category="Neon District|Camera", meta=(ClampMin=0.5, ClampMax=20))
+	float HeadBoneDampSmoothing = 4.f;
 
 	// 1인칭 화면에서 숨길 본. 1인칭 메시가 팔이 아니라 전신이라
 	// 카메라가 머리 안에 들어가 있고 머리.어깨가 화면으로 삐져나온다
