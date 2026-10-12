@@ -4,8 +4,6 @@
 #include "NeonDistrict/WarehouseShutter.h"
 #include "NeonDistrict/WarehouseMission.h"
 #include "Components/StaticMeshComponent.h"
-#include "WarehouseMission.h"
-#include "Tests/AutomationEditorCommon.h"
 
 // Sets default values
 AWarehouseShutter::AWarehouseShutter()
