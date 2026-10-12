@@ -13,7 +13,8 @@ class ANeonDistrictMission;
 class UCapsuleComponent;
 class UDataTable;
 /*
- * 미션을 주는 NPC. E키로 말을 걸면 연결된 미션을 수락시킨다.
+ * 미션을 주는 접선 지점. E키로 상호작용하면 연결된 미션을 수락시킨다.
+ * 지금 모습은 공중전화 부스지만, 클래스가 하는 일은 모습과 무관하다.
  */
 UCLASS()
 class CYBERPUNKPROJECT_API AFixerNPC : public AActor, public IInteractable
@@ -24,8 +25,10 @@ class CYBERPUNKPROJECT_API AFixerNPC : public AActor, public IInteractable
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta=(AllowPrivateAccess="true"))
 	UCapsuleComponent* Capsule;
 	
+	// 보이는 몸. 지금은 공중전화 부스다 - Fixer 는 전화 너머의 목소리고,
+	// 이 액터는 "미션을 주고 대사를 분기하는 지점"이지 사람이 아니다
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category= "Components", meta=(AllowPrivateAccess="true"))
-	USkeletalMeshComponent* Mesh;
+	UStaticMeshComponent* Mesh;
 
 	// 대화 중 화면을 잡는 카메라. 뷰포트에서 각도를 맞춘다
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta=(AllowPrivateAccess="true"))

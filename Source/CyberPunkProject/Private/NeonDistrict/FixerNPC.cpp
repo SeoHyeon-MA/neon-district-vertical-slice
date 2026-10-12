@@ -8,7 +8,7 @@
 #include "Camera/CameraComponent.h"
 #include "NeonDistrict/NeonDistrictMission.h"
 #include "Components/CapsuleComponent.h"
-#include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Engine/DataTable.h"
 
 // Sets default values
@@ -26,10 +26,10 @@ AFixerNPC::AFixerNPC()
 	Capsule->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block); //상호작용 트레이스
 	Capsule->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block); //플레이어가 뚫고 지나가지 않게
 
-	Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Mesh"));
+	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
 	Mesh->SetupAttachment(Capsule);
+	// 캡슐 바닥에 맞춘다. 마네킹 때 쓰던 -90 회전은 스켈레탈 메시 관례라 더 이상 필요 없다
 	Mesh->SetRelativeLocation(FVector(0.0f, 0.0f, -88.0f));
-	Mesh->SetRelativeRotation(FRotator(0.0f, -90.0f, 0.0f));
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	DialogueCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("DialogueCamera"));
