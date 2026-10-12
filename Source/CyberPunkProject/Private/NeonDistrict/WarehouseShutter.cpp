@@ -15,6 +15,10 @@ AWarehouseShutter::AWarehouseShutter()
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
 	SetRootComponent(Mesh);
 	// 벽이다. 기본 BlockAll
+	
+	// 런타임에 위로 올라간다. Static 이면 엔진이 이동을 무시하고
+	// "has to be 'Movable' if you'd like to move" 경고만 프레임마다 쌓인다
+	Mesh->SetMobility(EComponentMobility::Movable);
 }
 
 // Called when the game starts or when spawned
