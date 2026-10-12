@@ -26,6 +26,13 @@ class CYBERPUNKPROJECT_API AWarehouseDoor : public AActor, public IInteractable
 	UStaticMeshComponent* Mesh;
 	
 protected:
+	// 경첩에서 문짝을 밀어낼 거리. 폭의 절반만큼 밀어야 회전 중심이 문 가장자리에 온다.
+	// 폭이 어느 축인지는 메시마다 다르므로 벡터로 받는다 (SM_RustboundDoor 는 X 가 폭)
+	UPROPERTY(EditAnywhere, Category="Neon District")
+	FVector HingeOffset = FVector(-38.6f, 0.f, 0.f);
+	
+	// 닫힌 자리에서 몇 도 더 도는가. 부호가 여는 방향이다 -
+	// 플레이어가 서는 쪽을 쓸고 지나가지 않는 쪽으로 고른다
 	// 열렸을 떄 경첩 Yaw
 	UPROPERTY(EditAnywhere, Category="Neon District")
 	float OpenAngle = 100.f;
@@ -42,6 +49,7 @@ public:
 	AWarehouseDoor();
 	
 	//~ Begin AActor Interface
+	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
 	//~ End AActor Interface

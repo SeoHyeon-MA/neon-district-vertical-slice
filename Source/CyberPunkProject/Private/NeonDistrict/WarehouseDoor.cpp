@@ -17,7 +17,8 @@ AWarehouseDoor::AWarehouseDoor()
 	
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
 	Mesh->SetupAttachment(Hinge);
-	Mesh->SetRelativeLocation(FVector(0.f, 50.f, 0.f)); // 문 폭의 절반. 메시에 맞춰 조정
+	// 생성자에서는 기본값으로. 실제 적용은 OnConstruction 이라 에디터에서 바로 반영된다
+	Mesh->SetRelativeLocation(HingeOffset);
 	//문은 벽이다. 기본 blockAll - 트레이스도 맞고 플레이어도 막는다.
 }
 
@@ -29,6 +30,14 @@ void AWarehouseDoor::BeginPlay()
 	// Hinge 가 루트라 이 값이 곧 액터의 배치 Yaw 다
 	ClosedYaw = Hinge->GetRelativeRotation().Yaw;
 	CurrentYaw = ClosedYaw;
+}
+
+void AWarehouseDoor::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+	
+	// 경첩 오프셋을 여기서 적용한다. 값을 바꾸면 뷰포트에서 바로 보인다
+	Mesh->SetRelativeLocation(HingeOffset);
 }
 
 // Called every frame
