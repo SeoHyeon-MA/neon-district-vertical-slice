@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "NeonDistrict/WarehouseMission.h"
 #include "WarehouseShutter.generated.h"
 
 class UStaticMeshComponent;
@@ -22,6 +23,10 @@ class CYBERPUNKPROJECT_API AWarehouseShutter : public AActor
 	UStaticMeshComponent* Mesh;
 	
 protected:
+	// 이 단계 이상이 되면 열린다. 진입 셔터는 Fighting, 복귀 셔터는 ItemAcquired
+	UPROPERTY(EditAnywhere, Category="Neon District")
+	EWarehouseStep OpenAtStep = EWarehouseStep::ItemAcquired;
+	
 	// 열렸을 때 올라가는 높이 (cm)
 	UPROPERTY(EditAnywhere, Category="Neon District")
 	float OpenHeight = 600.f;

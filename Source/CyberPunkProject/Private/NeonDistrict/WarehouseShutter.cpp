@@ -65,7 +65,7 @@ void AWarehouseShutter::HandleMissionStateChanged(ANeonDistrictMission* Mission)
 {
 	if (bOpen || !BoundMission.IsValid()) return;
 	
-	if (BoundMission->GetStep() >= EWarehouseStep::ItemAcquired)
+	if (BoundMission->GetStep() >= OpenAtStep)
 	{
 		Open();
 	}
