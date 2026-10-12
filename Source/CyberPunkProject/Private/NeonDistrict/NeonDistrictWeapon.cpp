@@ -77,7 +77,16 @@ void ANeonDistrictWeapon::BeginPlay()
 		ThirdPersonAnimInstanceClass = ThirdPersonABP;
 	}
 
+	// 부모가 소유자를 찾아 손 소켓에 붙인다
 	Super::BeginPlay();
+	
+	// bOnlyOwnerSee 는 소유 플레이어가 있을 때만 관객을 갈라준다. 적처럼 사람이 아닌
+	// 소유자에게는 안 먹어서 1인칭 총과 3인칭 총이 둘 다 그려진다.
+	// 플래그 해석에 기대지 말고 "1인칭 총은 플레이어만 쓴다"를 직접 못 박는다
+	if (PawnOwner && !PawnOwner->IsPlayerControlled())
+	{
+		GunMesh->SetVisibility(false, true);
+	}
 }
 
 void ANeonDistrictWeapon::Fire()

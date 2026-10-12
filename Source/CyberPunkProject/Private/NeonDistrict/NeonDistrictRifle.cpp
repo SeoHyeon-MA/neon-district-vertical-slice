@@ -27,7 +27,8 @@ ANeonDistrictRifle::ANeonDistrictRifle()
 	// 1인칭과 3인칭이 월드에서 같은 크기다
 	GunMeshScaleThirdPerson = GunMeshScale;
 	
-	// 출발값. Fab 총의 바운딩 박스 중심을 템플릿 SM_Rifle 이 있던 자리에 겹치게 계산했다.
-	// 손에 쥔 모양은 눈으로 다듬는다
-	GunMeshLocationThirdPerson = FVector(-0.4f, 13.7f, 13.5f);
+	// 눈으로 맞춘 값. 에디터 Details 의 Rotation 표시는 X=Roll, Y=Pitch, Z=Yaw 순이다
+	//   Location (0.0, 13.2, 5.0)   Rotation X 9.5  Y -2.8  Z -1.8
+	GunMeshLocationThirdPerson = FVector(0.f, 13.2f, 5.f);
+	GunMeshRotationThirdPerson = FRotator(-2.8f, -1.8f, 9.5f);   // FRotator(Pitch, Yaw, Roll)
 }
