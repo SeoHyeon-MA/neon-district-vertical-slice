@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Variant_Shooter/Weapons/ShooterWeapon.h"
+#include "Variant_Shooter/Weapons/ShooterProjectile.h"
 #include "NeonDistrictWeapon.generated.h"
 
 /**
@@ -41,6 +42,10 @@ protected:
 	//3인칭 몸이 쓸 애니메이션
 	UPROPERTY(EditDefaultsOnly, Category = "NeonDistict")
 	TSoftClassPtr<UAnimInstance> ThirdPersonAnimAsset;
+	
+	//이 총이 쏘는 투사체. 무기마다 다르게 줄 수 있다
+	UPROPERTY(EditDefaultsOnly, Category = "NeonDistict")
+	TSoftClassPtr<AShooterProjectile> ProjectileAsset;
 	
 	//총 모델
 	UPROPERTY(EditDefaultsOnly, Category="NeonDistict|Mesh")

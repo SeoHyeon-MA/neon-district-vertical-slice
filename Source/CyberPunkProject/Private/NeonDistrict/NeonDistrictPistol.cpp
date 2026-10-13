@@ -9,6 +9,9 @@ ANeonDistrictPistol::ANeonDistrictPistol()
 	FirstPersonAnimAsset = TSoftClassPtr<UAnimInstance>(FSoftObjectPath(TEXT("/Game/Variant_Shooter/Anims/ABP_FP_Pistol.ABP_FP_Pistol_C")));
 
 	ThirdPersonAnimAsset = TSoftClassPtr<UAnimInstance>(FSoftObjectPath(TEXT("/Game/Variant_Shooter/Anims/ABP_TP_Pistol.ABP_TP_Pistol_C")));
+	
+	// 기본 투사체. 무기 BP 에서 덮어쓸 수 있다
+	ProjectileAsset = TSoftClassPtr<AShooterProjectile>(FSoftObjectPath(TEXT("/Game/NeonDistrict/Blueprints/BP_NeonDistrictBullet.BP_NeonDistrictBullet_C")));
 
 	GunMeshAsset = TSoftObjectPtr<UStaticMesh>(FSoftObjectPath(TEXT("/Game/Weapons/Pistol/Meshes/SM_Pistol.SM_Pistol")));
 	

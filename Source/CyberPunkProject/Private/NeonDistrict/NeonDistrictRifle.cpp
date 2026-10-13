@@ -10,6 +10,9 @@ ANeonDistrictRifle::ANeonDistrictRifle()
 
 	ThirdPersonAnimAsset = TSoftClassPtr<UAnimInstance>(FSoftObjectPath(TEXT("/Game/Variant_Shooter/Anims/ABP_TP_Rifle.ABP_TP_Rifle_C")));
 	
+	// 기본 투사체. 무기 BP 에서 덮어쓸 수 있다
+	ProjectileAsset = TSoftClassPtr<AShooterProjectile>(FSoftObjectPath(TEXT("/Game/NeonDistrict/Blueprints/BP_NeonDistrictBullet.BP_NeonDistrictBullet_C")));
+	
 	// 소총 설정
 	bFullAuto = true;
 	RefireRate = 0.12f;

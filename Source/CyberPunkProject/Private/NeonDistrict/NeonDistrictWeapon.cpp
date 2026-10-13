@@ -60,8 +60,7 @@ void ANeonDistrictWeapon::BeginPlay()
 {
 
 	// 발사할 투사체
-	if (UClass* Projectile = LoadClass<AShooterProjectile>(nullptr,
-		TEXT("/Game/Variant_Shooter/Blueprints/Pickups/Projectiles/BP_ShooterProjectile_Bullet.BP_ShooterProjectile_Bullet_C")))
+	if (UClass* Projectile = ProjectileAsset.LoadSynchronous())
 	{
 		ProjectileClass = Projectile;
 	}
