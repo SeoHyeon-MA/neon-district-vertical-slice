@@ -97,10 +97,17 @@ docs/CP77_Study/
 SourceArt/
 Tools/
 
-# Imported props and their source textures (187 MB, and a single 4K texture in
+# Imported props and their source textures (261 MB, and a single 4K texture in
 # here outweighs every level actor put together). Unlike the packs above these
 # were brought in and wired up by hand, so keep the local copy: the level
 # references them and a fresh clone will show those props missing.
+#
+# Decided 2026-10-14 to keep excluding this despite the folder's name: 256 of
+# its 261 MB are Fab props and textures, and tracking only the 5 MB that is
+# hand-authored still would not let the level open, because mission-critical
+# props (the door, the shutter, the payphone) live on the Fab side. The cost is
+# that collision shapes and Nanite settings on these meshes are not versioned.
+# See docs/known_issues.md B-02.
 Content/MyAssets/
 
 # Downloaded archives that got unpacked into Content. The assets inside are
