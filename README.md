@@ -77,14 +77,34 @@ Patrol → Investigate → Chase → Combat
 - 원경용 단순화 메시 및 저해상도 텍스처 사용
 - 불필요한 내부 구조와 Collision 제거
 
-최적화 결과는 동일한 카메라 위치와 그래픽 설정을 기준으로 전후 데이터를 기록할 예정입니다.
+### 측정과 판단
 
-| Metric | Before | After |
-| --- | ---: | ---: |
-| Average FPS | TBD | TBD |
-| GPU Frame Time | TBD | TBD |
-| Draw Calls | TBD | TBD |
-| Visible Primitives | TBD | TBD |
+고정 카메라 5곳에서 동일한 그래픽 설정으로 측정합니다 (Standalone 1920×1080, RTX 3060 Ti / Ryzen 5 5600X).
+아트 패스를 마친 현재 상태의 수치는 다음과 같습니다.
+
+| 카메라 | Frame (ms) | GPU (ms) | FPS |
+|---|---:|---:|---:|
+| 01 StreetEntrance | 14.35 | 13.37 | 69.7 |
+| 02 AlleyInterior | 12.88 | 11.91 | 77.6 |
+| 03 Hideout2FWindow | 13.24 | 12.29 | 75.5 |
+| 04 CombatZone | 14.15 | 13.16 | 70.7 |
+| 05 SkylineOverlook | 13.84 | 12.90 | 72.3 |
+
+이 프로젝트에서 최적화는 **목표치가 아니라 측정 결과에 따라 판단한 항목**입니다.
+다섯 카메라가 12.9~14.4ms 안에 모여 있고, 건물이 시야를 가득 채운 카메라와 거의 비어 있는 카메라의
+차이가 1.5ms뿐입니다. 즉 이 씬의 비용은 콘텐츠가 아니라 Lumen · VSM · Substrate의 고정 비용이
+지배하므로, 프랍을 줄이거나 LOD를 손보는 작업은 세션 편차(±0.5ms) 수준의 변화만 만듭니다.
+
+실제로 확인한 두 가지:
+
+- 건물 콜리전을 convex hull 528개 → 13개로 단순화 — 프레임 변화 측정되지 않음
+  (이 작업의 가치는 프레임이 아니라 물리 안정성과 에디터 작업성이었습니다)
+- 메쉬 12개에 Nanite 활성화 — 프레임 변화 ±0.6ms(노이즈 범위),
+  매 프레임 발생하던 VSM `Non-Nanite Marking Job Queue overflow` 경고는 완전히 해소
+
+목표인 60 FPS를 모든 카메라에서 충족하므로, 남은 일정은 추가 최적화 대신 버그 수정과
+완주 품질에 사용했습니다. 측정 절차와 전후 데이터, 측정 중 겪은 함정은
+[docs/perf/](docs/perf/)에 기록되어 있습니다.
 
 ## Level Structure
 
@@ -111,7 +131,7 @@ Neon District
 - [ ] 도시 환경 및 네온 라이팅 제작
 - [ ] World Partition, LOD, HLOD 최적화
 - [ ] 시작 및 종료 컷씬 제작
-- [ ] 성능 측정과 최적화 전후 비교
+- [x] 성능 측정과 최적화 전후 비교
 - [ ] 최종 플레이 테스트 및 폴리싱
 
 ## Documentation
@@ -129,6 +149,8 @@ Neon District
 | [docs/level_blockout_shots.md](docs/level_blockout_shots.md) | 블록아웃 구역별 스크린샷과 검토 기록 |
 | [docs/perf/README.md](docs/perf/README.md) | 성능 측정 프로토콜과 콘솔 명령 |
 | [docs/perf/baseline.md](docs/perf/baseline.md) | 최적화 기준선 측정 기록 |
+| [docs/perf/01_nanite_overhead.md](docs/perf/01_nanite_overhead.md) | Nanite 구성 전환 비용, 세션 간 재현성 확인 |
+| [docs/perf/02_art_pass.md](docs/perf/02_art_pass.md) | 아트 패스 이후 기준선, 메쉬 12개 Nanite 활성화, 측정 함정 |
 | [docs/perf/nanite_experiment.md](docs/perf/nanite_experiment.md) | Nanite vs 전통 LOD 비교 실험 설계 |
 
 작업 맵: `Content/NeonDistrict/Maps/Lvl_NeonDistrict`
