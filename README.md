@@ -142,6 +142,7 @@ Neon District
 |---|---|
 | [docs/roadmap.md](docs/roadmap.md) | 구현 로드맵 — 현재 상태, 작업 순서와 의존, 항목별 작업 체크리스트 |
 | [docs/story.md](docs/story.md) | 스토리 — 전제, 비트 시퀀스, Fixer 대사, 엔딩 연출 |
+| [docs/known_issues.md](docs/known_issues.md) | 알려진 문제와 버그 기록 — 열린 문제, 미완 기능, 닫힌 문제의 실제 원인 |
 | [docs/enemy_placement.md](docs/enemy_placement.md) | 적·순찰 경로 배치 가이드 — 절차, 계획 배치, 자주 걸리는 것 |
 | [docs/optimization_intro.md](docs/optimization_intro.md) | 원경 최적화 입문 — 드로우 콜, 링 구조, HLOD를 처음부터 설명하는 해설서 |
 | [docs/level_workflow.md](docs/level_workflow.md) | 링 레이어 구조, 폴더 규칙, 맵 제작 및 원경 최적화 워크플로우 |
