@@ -15,7 +15,7 @@ enum class EWarehouseStep : uint8
 {
 	Fighting,			// 적 처리 중				"적을 처리하세요"
 	KeyDropped,			// 마지막 적이 키를 떨어트림	"창고 키를 획득하세요"
-	KeyAcquired,		// 키 소지, 창고 잠김			"창고 문을 여세요"
+	KeyAcquired,		// 키 소지. 문을 열고 칩까지 한 단계로 묶는다	"창고에 들어가 데이터 칩을 획득하세요"
 	ItemAcquired		// 아이템 획득, 셔터 개방		"Fixer에게 돌아가세요"
 };
 

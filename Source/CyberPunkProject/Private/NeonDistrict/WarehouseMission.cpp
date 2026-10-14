@@ -62,7 +62,7 @@ FText AWarehouseMission::GetObjectiveText() const
 	{
 	case EWarehouseStep::Fighting: return FText::FromString(TEXT("적을 처리하세요"));
 	case EWarehouseStep::KeyDropped: return FText::FromString(TEXT("창고 키를 획득하세요"));
-	case EWarehouseStep::KeyAcquired: return FText::FromString(TEXT("창고 문을 여세요"));
+	case EWarehouseStep::KeyAcquired: return FText::FromString(TEXT("창고에 들어가 데이터 칩을 획득하세요"));
 	case EWarehouseStep::ItemAcquired: return FText::FromString(TEXT("Fixer에게 돌아가세요"));
 	default: return FText::GetEmpty();
 	}
